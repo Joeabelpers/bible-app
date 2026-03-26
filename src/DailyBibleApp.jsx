@@ -497,51 +497,78 @@ const styles = `
     position: relative;
   }
 
-  /* HEADER */
+  /* FIXED TOP HEADER — compact single bar */
   .header {
     background: var(--ink);
     color: var(--parchment);
-    padding: 12px 16px 10px;
+    padding: 0 12px;
+    height: 52px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-shrink: 0;
-    border-bottom: 3px solid var(--gold);
-    z-index: 10;
+    border-bottom: 2px solid var(--gold);
+    position: fixed;
+    top: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 480px;
+    z-index: 200;
   }
-  .header-title { font-family:'EB Garamond',serif; font-size:18px; font-weight:500; letter-spacing:0.5px; }
-  .header-subtitle { font-size:10px; color:var(--gold-light); letter-spacing:1px; text-transform:uppercase; margin-top:1px; }
-  .header-btn { background:none; border:1px solid var(--gold); color:var(--gold-light); border-radius:6px; padding:5px 10px; font-family:'Lato',sans-serif; font-size:11px; cursor:pointer; transition:all 0.2s; }
+  .header-left { display:flex; flex-direction:column; justify-content:center; }
+  .header-title { font-family:'EB Garamond',serif; font-size:16px; font-weight:500; letter-spacing:0.3px; line-height:1.1; }
+  .header-date { font-size:11px; color:var(--gold-light); margin-top:1px; font-family:'Lato',sans-serif; }
+  .header-center { display:flex; align-items:center; gap:4px; }
+  .header-nav-btn { background:none; border:none; color:var(--gold-light); font-size:20px; cursor:pointer; padding:4px 6px; line-height:1; transition:color 0.15s; }
+  .header-nav-btn:hover { color:var(--gold); }
+  .header-date-display { font-family:'EB Garamond',serif; font-size:14px; color:var(--parchment); min-width:60px; text-align:center; white-space:nowrap; }
+  .header-right { display:flex; align-items:center; gap:5px; }
+  .header-icon-btn { background:none; border:none; color:var(--gold-light); cursor:pointer; padding:4px; font-size:15px; line-height:1; border-radius:4px; transition:all 0.15s; }
+  .header-icon-btn:hover { color:var(--gold); }
+  .font-size-btn { background:none; border:1px solid var(--gold); border-radius:5px; padding:3px 7px; font-size:12px; font-weight:700; cursor:pointer; color:var(--gold-light); font-family:'Lato',sans-serif; line-height:1; transition:all 0.15s; }
+  .font-size-btn:hover { background:var(--gold); color:var(--ink); }
+  .font-size-btn:disabled { opacity:0.3; cursor:not-allowed; }
+  .header-btn { background:none; border:1px solid var(--gold); color:var(--gold-light); border-radius:5px; padding:4px 8px; font-family:'Lato',sans-serif; font-size:11px; cursor:pointer; transition:all 0.15s; white-space:nowrap; }
   .header-btn:hover { background:var(--gold); color:var(--ink); }
+  .today-chip { font-size:10px; font-family:'Lato',sans-serif; background:var(--gold); color:var(--ink); border:none; border-radius:10px; padding:2px 7px; cursor:pointer; font-weight:700; }
 
-  /* DATE BAR */
-  .date-bar { background:var(--white); border-bottom:1px solid var(--border); padding:8px 14px; display:flex; align-items:center; gap:8px; flex-shrink:0; }
-  .date-display { font-family:'EB Garamond',serif; font-size:16px; font-weight:500; flex:1; color:var(--ink); }
-  .date-nav-btn { background:none; border:1px solid var(--border); border-radius:6px; width:28px; height:28px; cursor:pointer; font-size:16px; color:var(--ink-light); display:flex; align-items:center; justify-content:center; transition:all 0.2s; }
-  .date-nav-btn:hover { background:var(--parchment-dark); }
-  .today-btn { font-size:10px; font-family:'Lato',sans-serif; background:var(--gold); color:var(--white); border:none; border-radius:6px; padding:5px 8px; cursor:pointer; font-weight:700; }
-  .share-btn { font-size:10px; font-family:'Lato',sans-serif; background:none; color:var(--gold); border:1px solid var(--gold); border-radius:6px; padding:4px 8px; cursor:pointer; transition:all 0.2s; }
-  .share-btn:hover { background:var(--gold); color:white; }
+  /* SPACER — pushes content below fixed header */
+  .header-spacer { height: 52px; flex-shrink:0; }
 
-  /* TABS */
-  .tabs { display:flex; background:var(--parchment-dark); border-bottom:2px solid var(--border); flex-shrink:0; }
-  .tab { flex:1; padding:8px 4px; font-size:11px; font-family:'Lato',sans-serif; font-weight:700; text-align:center; cursor:pointer; color:var(--ink-light); border:none; background:none; border-bottom:3px solid transparent; transition:all 0.2s; white-space:nowrap; }
-  .tab.active { color:var(--red); border-bottom-color:var(--red); background:var(--white); }
-  .tab-label { display:block; font-size:9px; font-weight:300; margin-top:1px; color:var(--ink-light); }
+  /* BOTTOM TAB BAR — fixed at bottom */
+  .tabs {
+    display: flex;
+    background: var(--ink);
+    border-top: 2px solid var(--gold);
+    position: fixed;
+    bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 480px;
+    z-index: 200;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  .tab {
+    flex: 1; padding: 8px 2px 10px;
+    font-size: 10px; font-family:'Lato',sans-serif; font-weight:700;
+    text-align:center; cursor:pointer;
+    color: var(--gold-light);
+    border: none; background: none;
+    border-top: 3px solid transparent;
+    transition: all 0.2s; white-space:nowrap;
+  }
+  .tab.active { color: var(--gold); border-top-color: var(--gold); }
+  .tab-icon { display:block; font-size:16px; margin-bottom:1px; }
+  .tab-label { display:block; font-size:9px; font-weight:400; }
 
-  /* FONT CONTROLS */
-  .font-controls { display:flex; align-items:center; gap:6px; padding:6px 16px; background:var(--parchment-dark); border-bottom:1px solid var(--border); flex-shrink:0; }
-  .font-label { font-family:'Lato',sans-serif; font-size:10px; font-weight:700; letter-spacing:0.5px; color:var(--ink-light); text-transform:uppercase; margin-right:2px; }
-  .font-size-btn { background:var(--white); border:1px solid var(--border); border-radius:6px; width:28px; height:28px; font-size:14px; cursor:pointer; color:var(--ink); display:flex; align-items:center; justify-content:center; transition:all 0.15s; font-family:'Lato',sans-serif; }
-  .font-size-btn:hover { background:var(--parchment-dark); border-color:var(--gold); }
-  .font-size-btn:disabled { opacity:0.35; cursor:not-allowed; }
-  .font-size-display { font-family:'Lato',sans-serif; font-size:12px; font-weight:700; color:var(--ink); min-width:32px; text-align:center; }
+  /* BOTTOM TAB SPACER */
+  .tabs-spacer { height: calc(56px + env(safe-area-inset-bottom, 0px)); flex-shrink:0; }
+
+  /* DATE BAR — removed, merged into header */
+  .share-btn { background:none; border:1px solid var(--gold); color:var(--gold-light); border-radius:5px; padding:3px 7px; font-family:'Lato',sans-serif; font-size:11px; cursor:pointer; transition:all 0.15s; }
+  .share-btn:hover { background:var(--gold); color:var(--ink); }
 
   /* PASSAGE SCROLL AREA */
   .passage-scroll {
     overflow-y: visible;
   }
-  .passage-container { padding: 16px 18px 80px; }
+  .passage-container { padding: 16px 18px 120px; }
   .passage-title { font-family:'EB Garamond',serif; font-size:20px; font-weight:600; color:var(--red); margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border); }
   .passage-text { font-family:Georgia,'Times New Roman',serif; font-size:var(--reading-size,18px); line-height:1.9; color:var(--ink); }
   .verse { margin-bottom:5px; position:relative; cursor:default; border-radius:4px; padding:2px 4px; transition:background 0.15s; }
@@ -1295,62 +1322,56 @@ export default function App() {
     <div className={darkMode ? "app dark" : "app"}>
       <style>{styles}</style>
 
-      {/* HEADER */}
+      {/* FIXED TOP HEADER */}
       <div className="header">
-        <div>
+        <div className="header-left">
           <div className="header-title">Daily Bible Reading</div>
-          <div className="header-subtitle">Roberts Reading Plan</div>
+          <div className="header-date">Roberts Reading Plan</div>
         </div>
-        <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
-          <button className="header-btn" onClick={toggleDark}
-            title={darkMode ? "Light mode" : "Dark mode"}
-            style={{fontSize:"15px",padding:"4px 8px",lineHeight:1}}>
+        <div className="header-center">
+          <button className="header-nav-btn" onClick={() => goDay(-1)}>‹</button>
+          <div style={{textAlign:"center"}}>
+            <div className="header-date-display">
+              {currentDate.toLocaleDateString("en-US",{month:"short",day:"numeric"})}
+            </div>
+            {!isToday && <button className="today-chip" onClick={goToday}>Today</button>}
+          </div>
+          <button className="header-nav-btn" onClick={() => goDay(1)}>›</button>
+        </div>
+        <div className="header-right">
+          <button className="font-size-btn" onClick={() => setFontSize(p => Math.max(MIN_FONT, p-2))} disabled={fontSize<=MIN_FONT}>A−</button>
+          <button className="font-size-btn" onClick={() => setFontSize(p => Math.min(MAX_FONT, p+2))} disabled={fontSize>=MAX_FONT}>A+</button>
+          <button className="header-icon-btn" onClick={toggleDark} title={darkMode?"Light mode":"Dark mode"}>
             {darkMode ? "☀️" : "🌙"}
           </button>
+          <button className="header-btn" onClick={handleShare}>Share</button>
           {user
-            ? <button className="header-btn" onClick={() => supabase.auth.signOut()}>Sign out</button>
+            ? <button className="header-btn" onClick={() => supabase.auth.signOut()}>Out</button>
             : <button className="header-btn" onClick={() => setShowAuth(true)}>Sign in</button>}
         </div>
       </div>
+      <div className="header-spacer" />
 
-      {/* DATE BAR */}
-      <div className="date-bar">
-        <button className="date-nav-btn" onClick={() => goDay(-1)}>‹</button>
-        <div className="date-display">{formattedDate}</div>
-        {!isToday && <button className="today-btn" onClick={goToday}>Today</button>}
-        <button className="share-btn" onClick={handleShare}>Share</button>
-        <button className="date-nav-btn" onClick={() => goDay(1)}>›</button>
-      </div>
-
-      {/* TABS */}
+      {/* BOTTOM TAB BAR */}
       {readings.length > 0 ? (<>
         <div className="tabs">
           {readings.map((r, i) => (
             <button key={i} className={`tab${activeTab===i?" active":""}`} onClick={() => { setActiveTab(i); setPanelOpen(false); }}>
-              Reading {i+1}
-              <span className="tab-label">{r}</span>
+              <span className="tab-icon">📅</span>
+              <span className="tab-label">Reading {i+1}</span>
             </button>
           ))}
           <button className={`tab${activeTab===readings.length?" active":""}`}
             onClick={() => { setActiveTab(readings.length); setPanelAnchor(null); setPanelOpen(true); }}>
-            💬 <span className="tab-label">Comments</span>
+            <span className="tab-icon">💬</span>
+            <span className="tab-label">Comments</span>
           </button>
           <button className={`tab${activeTab===readings.length+1?" active":""}`}
             onClick={() => { setActiveTab(readings.length+1); setPanelOpen(false); }}>
-            📖 <span className="tab-label">Bible</span>
+            <span className="tab-icon">📖</span>
+            <span className="tab-label">Bible</span>
           </button>
         </div>
-
-        {/* FONT CONTROLS */}
-        {activeTab < readings.length && (
-          <div className="font-controls">
-            <span className="font-label">Text size</span>
-            <button className="font-size-btn" onClick={() => setFontSize(p => Math.max(MIN_FONT, p-2))} disabled={fontSize<=MIN_FONT}>A−</button>
-            <span className="font-size-display">{fontSize}px</span>
-            <button className="font-size-btn" onClick={() => setFontSize(p => Math.min(MAX_FONT, p+2))} disabled={fontSize>=MAX_FONT} style={{fontSize:"13px",fontWeight:"700"}}>A+</button>
-            {user && <span style={{marginLeft:"auto",fontFamily:"'Lato',sans-serif",fontSize:"10px",color:"var(--ink-light)"}}>Select text to highlight</span>}
-          </div>
-        )}
 
         {/* PASSAGE SCROLL AREA */}
         {activeTab < readings.length && (
