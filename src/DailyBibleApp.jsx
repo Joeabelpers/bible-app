@@ -720,6 +720,63 @@ const styles = `
 
   .no-readings { font-family:'EB Garamond',serif; font-style:italic; color:var(--ink-light); text-align:center; padding:40px 0; font-size:16px; }
 
+  /* COMMENT VISIBILITY TOGGLE */
+  .comment-view-toggle { display:flex; gap:6px; padding:10px 16px 4px; flex-shrink:0; }
+  .cv-btn { flex:1; padding:6px 8px; border-radius:20px; border:1px solid var(--border); background:none; font-family:'Lato',sans-serif; font-size:12px; font-weight:700; color:var(--ink-light); cursor:pointer; transition:all 0.2s; }
+  .cv-btn.active { background:var(--red); color:white; border-color:var(--red); }
+  .group-select { width:100%; margin:4px 16px 0; padding:5px 8px; border:1px solid var(--border); border-radius:8px; background:var(--parchment); color:var(--ink); font-family:'Lato',sans-serif; font-size:12px; outline:none; width:calc(100% - 32px); }
+
+  /* COMMENT VISIBILITY WHEN POSTING */
+  .post-visibility { display:flex; gap:6px; margin-bottom:8px; }
+  .pv-btn { flex:1; padding:5px 6px; border-radius:16px; border:1px solid var(--border); background:none; font-family:'Lato',sans-serif; font-size:11px; font-weight:700; color:var(--ink-light); cursor:pointer; transition:all 0.2s; text-align:center; }
+  .pv-btn.active { background:var(--gold); color:var(--ink); border-color:var(--gold); }
+  .pv-group-select { width:100%; padding:5px 8px; border:1px solid var(--border); border-radius:8px; background:var(--parchment); color:var(--ink); font-family:'Lato',sans-serif; font-size:12px; outline:none; margin-bottom:8px; }
+  .comment-badge { font-size:10px; border-radius:8px; padding:1px 6px; font-family:'Lato',sans-serif; font-weight:700; margin-left:4px; }
+  .comment-badge.personal { background:var(--parchment-dark); color:var(--ink-light); }
+  .comment-badge.group { background:rgba(139,105,20,0.15); color:var(--gold); }
+
+  /* PROFILE / GROUPS PAGE */
+  .profile-page { padding:16px 16px 100px; }
+  .profile-section { margin-bottom:20px; }
+  .profile-section-title { font-family:'Lato',sans-serif; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--ink-light); margin-bottom:10px; }
+  .profile-user-card { background:var(--white); border:1px solid var(--border); border-radius:10px; padding:14px 16px; display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+  .profile-avatar { width:44px; height:44px; border-radius:50%; background:var(--gold); display:flex; align-items:center; justify-content:center; font-family:'EB Garamond',serif; font-size:20px; color:var(--ink); font-weight:600; flex-shrink:0; }
+  .profile-email { font-family:'Lato',sans-serif; font-size:13px; color:var(--ink); font-weight:700; }
+  .profile-sub { font-family:'Lato',sans-serif; font-size:11px; color:var(--ink-light); margin-top:2px; }
+  .group-card { background:var(--white); border:1px solid var(--border); border-radius:10px; padding:14px 16px; margin-bottom:10px; }
+  .group-card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .group-name { font-family:'EB Garamond',serif; font-size:17px; font-weight:600; color:var(--ink); }
+  .group-role-badge { font-size:10px; font-family:'Lato',sans-serif; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; padding:2px 8px; border-radius:10px; }
+  .group-role-badge.admin { background:var(--gold); color:var(--ink); }
+  .group-role-badge.member { background:var(--parchment-dark); color:var(--ink-light); }
+  .group-role-badge.pending { background:#fff3cd; color:#856404; }
+  .group-invite-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .group-invite-code { font-family:'Lato',sans-serif; font-size:18px; font-weight:700; letter-spacing:3px; color:var(--gold); background:var(--parchment); border:1px dashed var(--gold); border-radius:6px; padding:4px 10px; }
+  .group-invite-label { font-family:'Lato',sans-serif; font-size:10px; color:var(--ink-light); text-transform:uppercase; letter-spacing:0.5px; }
+  .group-action-row { display:flex; gap:6px; flex-wrap:wrap; }
+  .group-btn { padding:6px 12px; border-radius:6px; font-family:'Lato',sans-serif; font-size:12px; font-weight:700; cursor:pointer; border:none; transition:opacity 0.2s; }
+  .group-btn:hover { opacity:0.85; }
+  .group-btn.primary { background:var(--gold); color:var(--ink); }
+  .group-btn.danger { background:#dc3545; color:white; }
+  .group-btn.secondary { background:var(--parchment-dark); color:var(--ink); border:1px solid var(--border); }
+  .pending-member-row { display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); }
+  .pending-member-row:last-child { border-bottom:none; }
+  .pending-member-email { font-family:'Lato',sans-serif; font-size:12px; color:var(--ink); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .pending-actions { display:flex; gap:4px; flex-shrink:0; }
+  .approve-btn { background:#28a745; color:white; border:none; border-radius:5px; padding:4px 10px; font-size:11px; font-weight:700; cursor:pointer; font-family:'Lato',sans-serif; }
+  .reject-btn { background:#dc3545; color:white; border:none; border-radius:5px; padding:4px 10px; font-size:11px; font-weight:700; cursor:pointer; font-family:'Lato',sans-serif; }
+  .profile-input { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--parchment); color:var(--ink); font-family:'Lato',sans-serif; font-size:14px; outline:none; margin-bottom:8px; }
+  .profile-input:focus { border-color:var(--gold); }
+  .profile-action-btn { width:100%; padding:11px; border-radius:8px; font-family:'Lato',sans-serif; font-size:13px; font-weight:700; cursor:pointer; border:none; transition:opacity 0.2s; margin-bottom:8px; }
+  .profile-action-btn:hover { opacity:0.85; }
+  .profile-action-btn.primary { background:var(--ink); color:var(--parchment); }
+  .profile-action-btn.gold { background:var(--gold); color:var(--ink); }
+  .profile-action-btn.danger { background:#dc3545; color:white; }
+  .member-list-row { display:flex; align-items:center; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border); }
+  .member-list-row:last-child { border-bottom:none; }
+  .member-name { font-family:'Lato',sans-serif; font-size:12px; color:var(--ink); }
+  .member-role { font-size:10px; color:var(--ink-light); font-family:'Lato',sans-serif; }
+
   /* BIBLE BROWSER */
   .bible-browser { display:flex; flex-direction:column; }
   .bible-nav {
@@ -972,6 +1029,23 @@ export default function App() {
       return !prev;
     });
   }
+
+  // ── Group state ─────────────────────────────────────────────────────────
+  const [userGroups, setUserGroups]           = useState([]); // approved + pending memberships
+  const [pendingRequests, setPendingRequests] = useState({}); // groupId → [members]
+  const [groupMembers, setGroupMembers]       = useState({}); // groupId → [members]
+  const [commentView, setCommentView]         = useState("personal"); // "personal" | "group"
+  const [selectedGroupId, setSelectedGroupId] = useState(null); // which group to view
+  const [postVisibility, setPostVisibility]   = useState("personal"); // "personal" | "group"
+  const [postGroupId, setPostGroupId]         = useState(null);
+  const [groupsLoading, setGroupsLoading]     = useState(false);
+  // Profile page sub-views
+  const [profileView, setProfileView]         = useState("main"); // "main"|"create"|"join"|"manage"
+  const [manageGroupId, setManageGroupId]     = useState(null);
+  const [newGroupName, setNewGroupName]       = useState("");
+  const [joinCode, setJoinCode]               = useState("");
+  const [groupActionLoading, setGroupActionLoading] = useState(false);
+  const [groupActionError, setGroupActionError]     = useState("");
   const dateKey  = `${currentDate.getMonth()+1}-${currentDate.getDate()}`;
   const readings = READING_PLAN[dateKey] || [];
 
@@ -981,6 +1055,87 @@ export default function App() {
     const { data: l } = supabase.auth.onAuthStateChange((_e, s) => setUser(s?.user ?? null));
     return () => l.subscription.unsubscribe();
   }, []);
+
+  // ── Load user's groups ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!user) { setUserGroups([]); return; }
+    setGroupsLoading(true);
+    supabase.from("group_members")
+      .select("*, groups(*)")
+      .eq("user_id", user.id)
+      .in("status", ["approved","pending"])
+      .then(({ data }) => {
+        setUserGroups(data || []);
+        setGroupsLoading(false);
+        const first = (data || []).find(m => m.status === "approved");
+        if (first) setPostGroupId(p => p || first.group_id);
+        if (first) setSelectedGroupId(p => p || first.group_id);
+      });
+  }, [user]); // eslint-disable-line
+
+  async function loadPendingRequests(groupId) {
+    const { data } = await supabase.from("group_members").select("*").eq("group_id", groupId).eq("status","pending");
+    setPendingRequests(prev => ({ ...prev, [groupId]: data || [] }));
+  }
+  async function loadGroupMembers(groupId) {
+    const { data } = await supabase.from("group_members").select("*").eq("group_id", groupId).eq("status","approved");
+    setGroupMembers(prev => ({ ...prev, [groupId]: data || [] }));
+  }
+  function generateCode() { return Math.random().toString(36).substring(2,8).toUpperCase(); }
+
+  async function handleCreateGroup() {
+    if (!newGroupName.trim() || !user) return;
+    setGroupActionLoading(true); setGroupActionError("");
+    const code = generateCode();
+    const { data: grp, error: grpErr } = await supabase.from("groups")
+      .insert({ name: newGroupName.trim(), created_by: user.id, invite_code: code }).select().single();
+    if (grpErr) { setGroupActionError(grpErr.message); setGroupActionLoading(false); return; }
+    await supabase.from("group_members").insert({
+      group_id: grp.id, user_id: user.id, role:"admin", status:"approved",
+      email: user.email, username: user.user_metadata?.username || user.email.split("@")[0]
+    });
+    setNewGroupName(""); setProfileView("main");
+    const { data } = await supabase.from("group_members").select("*, groups(*)").eq("user_id", user.id).in("status",["approved","pending"]);
+    setUserGroups(data || []); setGroupActionLoading(false); showToast("Group created!");
+  }
+
+  async function handleJoinGroup() {
+    if (!joinCode.trim() || !user) return;
+    setGroupActionLoading(true); setGroupActionError("");
+    const { data: grp } = await supabase.from("groups").select("*").eq("invite_code", joinCode.trim().toUpperCase()).single();
+    if (!grp) { setGroupActionError("Invalid invite code"); setGroupActionLoading(false); return; }
+    const { data: existing } = await supabase.from("group_members").select("*").eq("group_id", grp.id).eq("user_id", user.id).maybeSingle();
+    if (existing) { setGroupActionError("You are already in this group"); setGroupActionLoading(false); return; }
+    await supabase.from("group_members").insert({
+      group_id: grp.id, user_id: user.id, role:"member", status:"pending",
+      email: user.email, username: user.user_metadata?.username || user.email.split("@")[0]
+    });
+    setJoinCode(""); setProfileView("main");
+    const { data } = await supabase.from("group_members").select("*, groups(*)").eq("user_id", user.id).in("status",["approved","pending"]);
+    setUserGroups(data || []); setGroupActionLoading(false); showToast("Request sent — waiting for approval");
+  }
+
+  async function handleApproveMember(groupId, memberId) {
+    await supabase.from("group_members").update({ status:"approved" }).eq("id", memberId);
+    loadPendingRequests(groupId); loadGroupMembers(groupId);
+  }
+  async function handleRejectMember(groupId, memberId) {
+    await supabase.from("group_members").update({ status:"rejected" }).eq("id", memberId);
+    loadPendingRequests(groupId);
+  }
+  async function handleRemoveMember(groupId, memberId) {
+    await supabase.from("group_members").delete().eq("id", memberId);
+    loadGroupMembers(groupId);
+  }
+  async function handleLeaveGroup(groupId) {
+    await supabase.from("group_members").delete().eq("group_id", groupId).eq("user_id", user.id);
+    setUserGroups(prev => prev.filter(m => m.group_id !== groupId)); showToast("Left group");
+  }
+  async function handleDeleteGroup(groupId) {
+    await supabase.from("groups").delete().eq("id", groupId);
+    setUserGroups(prev => prev.filter(m => m.group_id !== groupId));
+    setProfileView("main"); showToast("Group deleted");
+  }
 
   // ── Load passage ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1146,6 +1301,11 @@ export default function App() {
   async function fetchComments() {
     let q = supabase.from("comments").select("*").eq("date", dateKey).order("created_at");
     if (panelAnchor) q = q.eq("verse_ref", panelAnchor.verseKey);
+    if (commentView === "personal") {
+      q = q.eq("visibility","personal").eq("user_id", user?.id || "none");
+    } else if (commentView === "group" && selectedGroupId) {
+      q = q.eq("visibility","group").eq("group_id", selectedGroupId);
+    }
     const { data } = await q;
     setComments(data || []);
   }
@@ -1153,6 +1313,7 @@ export default function App() {
   async function handlePostComment() {
     if (!commentText.trim() || !user) return;
     setSubmitting(true);
+    const isGroup = postVisibility === "group" && postGroupId;
     await supabase.from("comments").insert({
       date: dateKey,
       user_id: user.id,
@@ -1161,6 +1322,8 @@ export default function App() {
       text: commentText.trim(),
       verse_ref: panelAnchor?.verseKey || null,
       anchor_text: panelAnchor?.text || null,
+      visibility: isGroup ? "group" : "personal",
+      group_id: isGroup ? postGroupId : null,
     });
     setCommentText("");
     await fetchComments();
@@ -1371,6 +1534,11 @@ export default function App() {
             <span className="tab-icon">📖</span>
             <span className="tab-label">Bible</span>
           </button>
+          <button className={`tab${activeTab===readings.length+2?" active":""}`}
+            onClick={() => { setActiveTab(readings.length+2); setPanelOpen(false); setProfileView("main"); }}>
+            <span className="tab-icon">👤</span>
+            <span className="tab-label">Profile</span>
+          </button>
         </div>
 
         {/* PASSAGE SCROLL AREA */}
@@ -1413,6 +1581,157 @@ export default function App() {
         )}
       </>) : (
         <div className="no-readings">No reading scheduled for this date.</div>
+      )}
+
+      {/* PROFILE / GROUPS TAB */}
+      {activeTab === readings.length + 2 && (
+        <div className="passage-scroll">
+          <div className="profile-page">
+            {!user ? (
+              <div style={{textAlign:"center",padding:"40px 0"}}>
+                <div style={{fontFamily:"'EB Garamond',serif",fontSize:"18px",color:"var(--ink)",marginBottom:"12px"}}>Sign in to manage groups</div>
+                <button className="profile-action-btn primary" style={{maxWidth:"240px",margin:"0 auto"}} onClick={() => setShowAuth(true)}>Sign In</button>
+              </div>
+            ) : profileView === "main" ? (<>
+              {/* User card */}
+              <div className="profile-user-card">
+                <div className="profile-avatar">{(user.user_metadata?.username || user.email)[0].toUpperCase()}</div>
+                <div>
+                  <div className="profile-email">{user.user_metadata?.username || user.email.split("@")[0]}</div>
+                  <div className="profile-sub">{user.email}</div>
+                </div>
+              </div>
+
+              {/* Groups list */}
+              <div className="profile-section">
+                <div className="profile-section-title">Your Groups</div>
+                {groupsLoading && <div className="loading-text">Loading…</div>}
+                {!groupsLoading && userGroups.length === 0 && (
+                  <div style={{fontFamily:"'EB Garamond',serif",fontStyle:"italic",color:"var(--ink-light)",fontSize:"15px",marginBottom:"12px"}}>
+                    You're not in any groups yet.
+                  </div>
+                )}
+                {userGroups.map(m => (
+                  <div key={m.id} className="group-card">
+                    <div className="group-card-header">
+                      <div className="group-name">{m.groups?.name}</div>
+                      <span className={`group-role-badge ${m.status==="pending"?"pending":m.role}`}>
+                        {m.status==="pending" ? "Pending" : m.role}
+                      </span>
+                    </div>
+                    {m.status==="approved" && m.role==="admin" && (
+                      <>
+                        <div className="group-invite-label">Invite Code</div>
+                        <div className="group-invite-row">
+                          <div className="group-invite-code">{m.groups?.invite_code}</div>
+                          <button className="group-btn secondary" onClick={() => { try{navigator.clipboard.writeText(m.groups?.invite_code);}catch(e){} showToast("Code copied!"); }}>Copy</button>
+                        </div>
+                      </>
+                    )}
+                    <div className="group-action-row">
+                      {m.status==="approved" && m.role==="admin" && (
+                        <button className="group-btn primary" onClick={() => {
+                          setManageGroupId(m.group_id);
+                          loadPendingRequests(m.group_id);
+                          loadGroupMembers(m.group_id);
+                          setProfileView("manage");
+                        }}>Manage</button>
+                      )}
+                      {m.status==="approved" && m.role==="member" && (
+                        <button className="group-btn danger" onClick={() => handleLeaveGroup(m.group_id)}>Leave</button>
+                      )}
+                      {m.status==="pending" && (
+                        <button className="group-btn danger" onClick={() => handleLeaveGroup(m.group_id)}>Cancel Request</button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Actions */}
+              <div className="profile-section">
+                <div className="profile-section-title">Join or Create</div>
+                <button className="profile-action-btn gold" onClick={() => { setProfileView("create"); setGroupActionError(""); }}>+ Create a Group</button>
+                <button className="profile-action-btn primary" onClick={() => { setProfileView("join"); setGroupActionError(""); }}>Enter Invite Code</button>
+              </div>
+
+              {/* Sign out */}
+              <div className="profile-section">
+                <button className="profile-action-btn danger" onClick={() => supabase.auth.signOut()}>Sign Out</button>
+              </div>
+            </>) : profileView === "create" ? (<>
+              <button onClick={() => setProfileView("main")} style={{background:"none",border:"none",color:"var(--gold)",fontFamily:"'Lato',sans-serif",fontSize:"13px",cursor:"pointer",marginBottom:"16px",padding:0}}>← Back</button>
+              <div className="profile-section-title">Create a Group</div>
+              <input className="profile-input" placeholder="Group name (e.g. Morning Study)"
+                value={newGroupName} onChange={e => setNewGroupName(e.target.value)}
+                onKeyDown={e => e.key==="Enter" && handleCreateGroup()} />
+              {groupActionError && <div style={{color:"var(--red)",fontFamily:"'Lato',sans-serif",fontSize:"12px",marginBottom:"8px"}}>{groupActionError}</div>}
+              <button className="profile-action-btn gold" disabled={!newGroupName.trim()||groupActionLoading} onClick={handleCreateGroup}>
+                {groupActionLoading ? "Creating…" : "Create Group"}
+              </button>
+            </>) : profileView === "join" ? (<>
+              <button onClick={() => setProfileView("main")} style={{background:"none",border:"none",color:"var(--gold)",fontFamily:"'Lato',sans-serif",fontSize:"13px",cursor:"pointer",marginBottom:"16px",padding:0}}>← Back</button>
+              <div className="profile-section-title">Join a Group</div>
+              <input className="profile-input" placeholder="Enter 6-character invite code"
+                value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())}
+                onKeyDown={e => e.key==="Enter" && handleJoinGroup()}
+                style={{letterSpacing:"3px",fontWeight:"700",textTransform:"uppercase"}} />
+              {groupActionError && <div style={{color:"var(--red)",fontFamily:"'Lato',sans-serif",fontSize:"12px",marginBottom:"8px"}}>{groupActionError}</div>}
+              <button className="profile-action-btn gold" disabled={!joinCode.trim()||groupActionLoading} onClick={handleJoinGroup}>
+                {groupActionLoading ? "Sending…" : "Send Join Request"}
+              </button>
+            </>) : profileView === "manage" && manageGroupId ? (() => {
+              const membership = userGroups.find(m => m.group_id === manageGroupId);
+              const pending = pendingRequests[manageGroupId] || [];
+              const members = groupMembers[manageGroupId] || [];
+              return (<>
+                <button onClick={() => setProfileView("main")} style={{background:"none",border:"none",color:"var(--gold)",fontFamily:"'Lato',sans-serif",fontSize:"13px",cursor:"pointer",marginBottom:"16px",padding:0}}>← Back</button>
+                <div className="group-name" style={{marginBottom:"16px"}}>{membership?.groups?.name}</div>
+
+                {pending.length > 0 && (
+                  <div className="profile-section">
+                    <div className="profile-section-title">Pending Requests ({pending.length})</div>
+                    <div className="group-card">
+                      {pending.map(p => (
+                        <div key={p.id} className="pending-member-row">
+                          <div className="pending-member-email">{p.username || p.email}</div>
+                          <div className="pending-actions">
+                            <button className="approve-btn" onClick={() => handleApproveMember(manageGroupId, p.id)}>✓</button>
+                            <button className="reject-btn" onClick={() => handleRejectMember(manageGroupId, p.id)}>✗</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="profile-section">
+                  <div className="profile-section-title">Members ({members.length})</div>
+                  <div className="group-card">
+                    {members.map(m => (
+                      <div key={m.id} className="member-list-row">
+                        <div>
+                          <div className="member-name">{m.username || m.email}</div>
+                          <div className="member-role">{m.role}</div>
+                        </div>
+                        {m.user_id !== user.id && (
+                          <button className="reject-btn" onClick={() => handleRemoveMember(manageGroupId, m.id)}>Remove</button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="profile-section">
+                  <div className="profile-section-title">Danger Zone</div>
+                  <button className="profile-action-btn danger" onClick={() => { if(window.confirm("Delete this group? This cannot be undone.")) handleDeleteGroup(manageGroupId); }}>
+                    Delete Group
+                  </button>
+                </div>
+              </>);
+            })() : null}
+          </div>
+        </div>
       )}
 
       {/* BIBLE BROWSER TAB */}
@@ -1613,31 +1932,74 @@ export default function App() {
                 📍 {panelAnchor.text.length > 60 ? panelAnchor.text.slice(0,60)+"…" : panelAnchor.text}
               </div>
             )}
+            {/* VIEW TOGGLE — personal vs group */}
+            {user && (
+              <div className="comment-view-toggle">
+                <button className={`cv-btn${commentView==="personal"?" active":""}`}
+                  onClick={() => setCommentView("personal")}>🔒 Personal</button>
+                {userGroups.filter(m=>m.status==="approved").length > 0 && (
+                  <button className={`cv-btn${commentView==="group"?" active":""}`}
+                    onClick={() => setCommentView("group")}>👥 Group</button>
+                )}
+              </div>
+            )}
+            {commentView==="group" && userGroups.filter(m=>m.status==="approved").length > 1 && (
+              <select className="group-select" value={selectedGroupId||""}
+                onChange={e => setSelectedGroupId(e.target.value)}>
+                {userGroups.filter(m=>m.status==="approved").map(m => (
+                  <option key={m.group_id} value={m.group_id}>{m.groups?.name}</option>
+                ))}
+              </select>
+            )}
             <div className="panel-scroll">
-              {comments.length === 0 && <div className="no-comments">No notes yet — be the first to add one.</div>}
+              {!user && <p className="sign-in-prompt"><button className="sign-in-prompt-btn" onClick={()=>setShowAuth(true)}>Sign in</button> to add notes.</p>}
+              {user && comments.length === 0 && <div className="no-comments">No {commentView==="group"?"group ":""}notes yet.</div>}
               {comments.map(c => (
                 <div key={c.id} className="comment-card">
                   <div className="comment-header">
-                    <span className="comment-author">{c.username}</span>
+                    <span className="comment-author">
+                      {c.username}
+                      <span className={`comment-badge ${c.visibility||"personal"}`}>
+                        {c.visibility==="group" ? "👥 group" : "🔒"}
+                      </span>
+                    </span>
                     <span className="comment-time">{new Date(c.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}</span>
                   </div>
                   {c.anchor_text && <div className="comment-anchor">"{c.anchor_text.length > 50 ? c.anchor_text.slice(0,50)+"…" : c.anchor_text}"</div>}
                   <div className="comment-body">{c.text}</div>
                 </div>
               ))}
-              {user ? (
+              {user && (
                 <div className="comment-form">
+                  {/* POST VISIBILITY */}
+                  <div className="post-visibility">
+                    <button className={`pv-btn${postVisibility==="personal"?" active":""}`}
+                      onClick={() => setPostVisibility("personal")}>🔒 Personal</button>
+                    {userGroups.filter(m=>m.status==="approved").length > 0 && (
+                      <button className={`pv-btn${postVisibility==="group"?" active":""}`}
+                        onClick={() => setPostVisibility("group")}>👥 Group</button>
+                    )}
+                  </div>
+                  {postVisibility==="group" && userGroups.filter(m=>m.status==="approved").length > 1 && (
+                    <select className="pv-group-select" value={postGroupId||""}
+                      onChange={e => setPostGroupId(e.target.value)}>
+                      {userGroups.filter(m=>m.status==="approved").map(m => (
+                        <option key={m.group_id} value={m.group_id}>{m.groups?.name}</option>
+                      ))}
+                    </select>
+                  )}
+                  {postVisibility==="group" && userGroups.filter(m=>m.status==="approved").length === 0 && (
+                    <div style={{fontSize:"12px",color:"var(--ink-light)",fontFamily:"'Lato',sans-serif",marginBottom:"6px"}}>
+                      You're not in any groups yet. <button style={{background:"none",border:"none",color:"var(--gold)",cursor:"pointer",fontSize:"12px"}} onClick={() => { setActiveTab(readings.length+2); setPanelOpen(false); }}>Join one →</button>
+                    </div>
+                  )}
                   <textarea className="comment-textarea"
-                    placeholder={panelAnchor ? "Add a note on this verse…" : "Share a reflection on today's reading…"}
+                    placeholder={panelAnchor ? "Add a note on this verse…" : "Share a reflection…"}
                     value={commentText} onChange={e => setCommentText(e.target.value)} />
                   <button className="comment-submit" disabled={!commentText.trim()||submitting} onClick={handlePostComment}>
                     {submitting ? "Posting…" : "Post"}
                   </button>
                 </div>
-              ) : (
-                <p className="sign-in-prompt">
-                  <button className="sign-in-prompt-btn" onClick={() => setShowAuth(true)}>Sign in</button> to add notes.
-                </p>
               )}
             </div>
           </div>
