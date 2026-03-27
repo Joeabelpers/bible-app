@@ -451,33 +451,35 @@ const styles = `
   @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Lato:wght@300;400;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap');
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #f5f0e8; margin:0; padding:0; }
+  body { background: #F1E9DB; margin:0; padding:0; }
 
   :root {
-    --parchment: #f5f0e8;
-    --parchment-dark: #e8e0cc;
-    --ink: #1a1209;
-    --ink-light: #4a3f2f;
-    --gold: #8b6914;
-    --gold-light: #c9a227;
-    --red: #8b1a1a;
-    --border: #c9b99a;
-    --white: #faf8f3;
+    --parchment: #F1E9DB;
+    --parchment-dark: #e2d8c6;
+    --ink: #221E1E;
+    --ink-light: #5a5050;
+    --gold: #297373;
+    --gold-light: #3a9090;
+    --red: #297373;
+    --accent: #9BC53D;
+    --border: #c9bfaa;
+    --white: #faf6ef;
     --panel-h: 45vh;
   }
   .dark {
-    --parchment: #1a1a2e;
-    --parchment-dark: #16213e;
-    --ink: #e8e0cc;
+    --parchment: #221E1E;
+    --parchment-dark: #1a1616;
+    --ink: #F1E9DB;
     --ink-light: #a89880;
-    --gold: #c9a227;
-    --gold-light: #e8c060;
-    --red: #e07070;
-    --border: #2e3a50;
-    --white: #0f1923;
+    --gold: #3a9090;
+    --gold-light: #4db0b0;
+    --red: #4db0b0;
+    --accent: #9BC53D;
+    --border: #3a3030;
+    --white: #2e2828;
     --panel-h: 45vh;
   }
-  .dark body { background: #1a1a2e; }
+  .dark body { background: #221E1E; }
   .dark .sel-toolbar { background: #0f1923; border: 1px solid #2e3a50; }
   .dark .sel-comment-btn { color: #e8e0cc; border-color: #2e3a50; }
   .dark .colour-picker-overlay { background: rgba(0,0,0,0.75); }
@@ -507,19 +509,19 @@ const styles = `
     align-items: center;
     justify-content: space-between;
     flex-shrink: 0;
-    border-bottom: 2px solid var(--gold);
+    border-bottom: none;
     position: fixed;
     top: 0; left: 50%; transform: translateX(-50%);
     width: 100%; max-width: 480px;
     z-index: 200;
   }
   .header-left { display:flex; flex-direction:column; justify-content:center; }
-  .header-title { font-family:'EB Garamond',serif; font-size:16px; font-weight:500; letter-spacing:0.3px; line-height:1.1; }
-  .header-date { font-size:11px; color:var(--gold-light); margin-top:1px; font-family:'Lato',sans-serif; }
+  .header-title { font-family:'Lato',sans-serif; font-size:20px; font-weight:900; letter-spacing:0.3px; line-height:1.1; text-transform:uppercase; }
+  .header-date { display:none; }
   .header-center { display:flex; align-items:center; gap:4px; }
   .header-nav-btn { background:none; border:none; color:var(--gold-light); font-size:20px; cursor:pointer; padding:4px 6px; line-height:1; transition:color 0.15s; }
   .header-nav-btn:hover { color:var(--gold); }
-  .header-date-display { font-family:'EB Garamond',serif; font-size:14px; color:var(--parchment); min-width:60px; text-align:center; white-space:nowrap; }
+  .header-date-display { font-family:'Lato',sans-serif; font-size:16px; font-weight:700; color:var(--parchment); min-width:70px; text-align:center; white-space:nowrap; }
   .header-right { display:flex; align-items:center; gap:5px; }
   .header-icon-btn { background:none; border:none; color:var(--gold-light); cursor:pointer; padding:4px; font-size:15px; line-height:1; border-radius:4px; transition:all 0.15s; }
   .header-icon-btn:hover { color:var(--gold); }
@@ -527,8 +529,8 @@ const styles = `
   .font-size-btn:hover { background:var(--gold); color:var(--ink); }
   .font-size-btn:disabled { opacity:0.3; cursor:not-allowed; }
   .header-btn { background:none; border:1px solid var(--gold); color:var(--gold-light); border-radius:5px; padding:4px 8px; font-family:'Lato',sans-serif; font-size:11px; cursor:pointer; transition:all 0.15s; white-space:nowrap; }
-  .header-btn:hover { background:var(--gold); color:var(--ink); }
-  .today-chip { font-size:10px; font-family:'Lato',sans-serif; background:var(--gold); color:var(--ink); border:none; border-radius:10px; padding:2px 7px; cursor:pointer; font-weight:700; }
+  .header-btn:hover { background:var(--gold); color:var(--white); }
+  .today-chip { font-size:10px; font-family:'Lato',sans-serif; background:var(--gold); color:var(--white); border:none; border-radius:10px; padding:2px 7px; cursor:pointer; font-weight:700; }
 
   /* SPACER — pushes content below fixed header */
   .header-spacer { height: 52px; flex-shrink:0; }
@@ -537,7 +539,7 @@ const styles = `
   .tabs {
     display: flex;
     background: var(--ink);
-    border-top: 2px solid var(--gold);
+    border-top: none;
     position: fixed;
     bottom: 0; left: 50%; transform: translateX(-50%);
     width: 100%; max-width: 480px;
@@ -553,9 +555,9 @@ const styles = `
     border-top: 3px solid transparent;
     transition: all 0.2s; white-space:nowrap;
   }
-  .tab.active { color: var(--gold); border-top-color: var(--gold); }
-  .tab-icon { display:block; font-size:16px; margin-bottom:1px; }
-  .tab-label { display:block; font-size:9px; font-weight:400; }
+  .tab.active { color: var(--accent); border-top-color: var(--accent); }
+  .tab-icon { display:block; font-size:18px; margin-bottom:1px; line-height:1; }
+  .tab-label { display:block; font-size:9px; font-weight:700; letter-spacing:0.3px; }
 
   /* BOTTOM TAB SPACER */
   .tabs-spacer { height: calc(56px + env(safe-area-inset-bottom, 0px)); flex-shrink:0; }
@@ -569,10 +571,10 @@ const styles = `
     overflow-y: visible;
   }
   .passage-container { padding: 16px 18px 120px; }
-  .passage-title { font-family:'EB Garamond',serif; font-size:20px; font-weight:600; color:var(--red); margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border); }
-  .passage-text { font-family:Georgia,'Times New Roman',serif; font-size:var(--reading-size,18px); line-height:1.9; color:var(--ink); }
+  .passage-title { font-family:'Lato',sans-serif; font-size:22px; font-weight:900; color:var(--ink); margin-bottom:14px; padding-bottom:10px; text-transform:uppercase; letter-spacing:1px; }
+  .passage-text { font-family:'Lato',sans-serif; font-size:var(--reading-size,18px); line-height:1.9; color:var(--ink); }
   .verse { margin-bottom:5px; position:relative; cursor:default; border-radius:4px; padding:2px 4px; transition:background 0.15s; }
-  .verse:hover { background: rgba(139,105,20,0.06); }
+  .verse:hover { background: rgba(41,115,115,0.06); }
   .verse-num { font-size:10px; font-family:'Lato',sans-serif; font-weight:700; color:var(--gold); vertical-align:super; margin-right:3px; }
   .verse-footnote { font-size:0.7em; font-family:'Lato',sans-serif; font-weight:700; color:var(--red); vertical-align:super; margin-left:3px; cursor:pointer; line-height:0; }
   .verse-footnote:hover { text-decoration:underline; }
@@ -1488,8 +1490,7 @@ export default function App() {
       {/* FIXED TOP HEADER */}
       <div className="header">
         <div className="header-left">
-          <div className="header-title">Daily Bible Reading</div>
-          <div className="header-date">Roberts Reading Plan</div>
+          <div className="header-title">Bible Reading</div>
         </div>
         <div className="header-center">
           <button className="header-nav-btn" onClick={() => goDay(-1)}>‹</button>
@@ -1504,8 +1505,9 @@ export default function App() {
         <div className="header-right">
           <button className="font-size-btn" onClick={() => setFontSize(p => Math.max(MIN_FONT, p-2))} disabled={fontSize<=MIN_FONT}>A−</button>
           <button className="font-size-btn" onClick={() => setFontSize(p => Math.min(MAX_FONT, p+2))} disabled={fontSize>=MAX_FONT}>A+</button>
-          <button className="header-icon-btn" onClick={toggleDark} title={darkMode?"Light mode":"Dark mode"}>
-            {darkMode ? "☀️" : "🌙"}
+          <button className="header-icon-btn" onClick={toggleDark} title={darkMode?"Light mode":"Dark mode"}
+            style={{fontSize:"18px",border:"1.5px solid var(--gold)",borderRadius:"5px",padding:"3px 5px"}}>
+            {darkMode ? "○" : "●"}
           </button>
           <button className="header-btn" onClick={handleShare}>Share</button>
           {user
@@ -1520,24 +1522,32 @@ export default function App() {
         <div className="tabs">
           {readings.map((r, i) => (
             <button key={i} className={`tab${activeTab===i?" active":""}`} onClick={() => { setActiveTab(i); setPanelOpen(false); }}>
-              <span className="tab-icon">📅</span>
-              <span className="tab-label">Reading {i+1}</span>
+              <span className="tab-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+              </span>
+              <span className="tab-label">READING {String(i+1).padStart(2,"0")}</span>
             </button>
           ))}
           <button className={`tab${activeTab===readings.length?" active":""}`}
             onClick={() => { setActiveTab(readings.length); setPanelAnchor(null); setPanelOpen(true); }}>
-            <span className="tab-icon">💬</span>
-            <span className="tab-label">Comments</span>
+            <span className="tab-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </span>
+            <span className="tab-label">NOTES</span>
           </button>
           <button className={`tab${activeTab===readings.length+1?" active":""}`}
             onClick={() => { setActiveTab(readings.length+1); setPanelOpen(false); }}>
-            <span className="tab-icon">📖</span>
-            <span className="tab-label">Bible</span>
+            <span className="tab-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
+            <span className="tab-label">SEARCH</span>
           </button>
           <button className={`tab${activeTab===readings.length+2?" active":""}`}
             onClick={() => { setActiveTab(readings.length+2); setPanelOpen(false); setProfileView("main"); }}>
-            <span className="tab-icon">👤</span>
-            <span className="tab-label">Profile</span>
+            <span className="tab-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </span>
+            <span className="tab-label">PROFILE</span>
           </button>
         </div>
 
@@ -1561,7 +1571,7 @@ export default function App() {
                         <p key={i} className="verse"
                           onMouseUp={e => handleVerseMouseUp(e, {...v, book: bookName})}
                           onTouchEnd={e => handleVerseMouseUp(e, {...v, book: bookName})}>
-                          <span className="verse-num">{v.chapter}:{v.verse}</span>
+                          <span className="verse-num">{v.verse}</span>
                           <span className="verse-body"><AnnotatedVerse text={v.text} annotations={anns} /></span>
                           {fnCount > 0 && (
                             <span className="verse-footnote" onClick={e => { e.stopPropagation(); openPanelForVerse(vKey, `${v.chapter}:${v.verse}`); }}>
