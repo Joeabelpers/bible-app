@@ -552,12 +552,12 @@ const styles = `
     flex: 1; padding: 8px 2px 10px;
     font-size: 10px; font-family:'Lato',sans-serif; font-weight:700;
     text-align:center; cursor:pointer;
-    color: var(--gold-light);
+    color: var(--ink);
     border: none; background: none;
     border-top: 3px solid transparent;
     transition: all 0.2s; white-space:nowrap;
   }
-  .tab.active { color: var(--accent); border-top-color: var(--accent); }
+  .tab.active { color: var(--ink); border-top-color: var(--ink); }
   .tab-icon { display:block; font-size:18px; margin-bottom:1px; line-height:1; }
   .tab-label { display:block; font-size:9px; font-weight:700; letter-spacing:0.3px; }
 
