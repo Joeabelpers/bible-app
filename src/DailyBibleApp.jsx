@@ -1537,7 +1537,7 @@ export default function App() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className={darkMode ? <div className={darkMode ? "app dark" : "app"} onClick={() => { setShowSettings(false); setShowVersionPicker(false); }}>app <div className={darkMode ? "app dark" : "app"} onClick={() => { setShowSettings(false); setShowVersionPicker(false); }}>" : "app"}>
+    <div className={darkMode ? "app dark" : "app"} onClick={() => { setShowSettings(false); setShowVersionPicker(false); }}>
       <style>{styles}</style>
 
 {/* FIXED TOP HEADER */}
