@@ -1007,6 +1007,8 @@ export default function App() {
   const [passageVerses, setPassageVerses] = useState([]);
   const [passageLoading, setPassageLoading] = useState(false);
   const [fontSize, setFontSize]         = useState(18);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showVersionPicker, setShowVersionPicker] = useState(false);
 
   // Panel state
   const [panelOpen, setPanelOpen]       = useState(false);
