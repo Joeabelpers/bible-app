@@ -2095,9 +2095,7 @@ export default function App() {
       )}
 
 {/* TOAST */}
-      {toast && <div className="toast">{toast}</div>}
-
-      {/* SETTINGS MENU */}
+{/* SETTINGS MENU */}
       {showSettings && (
         <div style={{position:"fixed",top:"52px",right:"calc(50% - 240px)",background:"var(--parchment)",
           border:"1px solid var(--border)",borderRadius:"0 0 0 8px",zIndex:300,
@@ -2106,7 +2104,7 @@ export default function App() {
             <button style={{background:"none",border:"none",cursor:"pointer",
               color:"var(--ink)",fontFamily:"Lato",fontSize:"14px",textAlign:"left",padding:"4px 0"}}
               onClick={() => { toggleDark(); setShowSettings(false); }}>
-              {darkMode ? "☀️ Light Mode" : "🌙 Dark Mode"}
+              {darkMode ? "Light Mode" : "Dark Mode"}
             </button>
             <div style={{display:"flex",alignItems:"center",gap:"8px",color:"var(--ink)",fontSize:"14px",fontFamily:"Lato"}}>
               <span>Font</span>
@@ -2116,7 +2114,7 @@ export default function App() {
             <button style={{background:"none",border:"none",cursor:"pointer",
               color:"var(--ink)",fontFamily:"Lato",fontSize:"14px",textAlign:"left",padding:"4px 0"}}
               onClick={() => { handleShare(); setShowSettings(false); }}>
-              📤 Share
+              Share
             </button>
             {user
               ? <button style={{background:"none",border:"none",cursor:"pointer",
@@ -2133,12 +2131,11 @@ export default function App() {
             <button style={{background:"none",border:"none",cursor:"pointer",
               color:"var(--ink-light)",fontFamily:"Lato",fontSize:"12px",textAlign:"left",padding:"4px 0"}}
               onClick={() => setShowSettings(false)}>
-              ✕ Close
+              Close
             </button>
           </div>
         </div>
       )}
-
       {/* VERSION PICKER */}
       {showVersionPicker && (
         <div style={{position:"fixed",top:"52px",left:"calc(50% - 240px)",background:"var(--parchment)",
@@ -2158,7 +2155,7 @@ export default function App() {
             <button style={{background:"none",border:"none",cursor:"pointer",
               color:"var(--ink-light)",fontFamily:"Lato",fontSize:"12px",padding:"4px 0"}}
               onClick={() => setShowVersionPicker(false)}>
-              ✕ Close
+              Close
             </button>
           </div>
         </div>
