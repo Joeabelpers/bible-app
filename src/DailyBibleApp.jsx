@@ -487,6 +487,7 @@ const styles = `
   .dark .passage-text { color: var(--ink); }
   .dark .auth-overlay { background: rgba(0,0,0,0.85); }
   .dark .header { background: var(--gold); }
+  .dark .tabs { background: var(--gold); }
 
   .app {
     font-family: 'Lato', sans-serif;
@@ -539,7 +540,7 @@ const styles = `
   /* BOTTOM TAB BAR — fixed at bottom */
   .tabs {
     display: flex;
-    background: var(--ink);
+    background: var(--accent);
     border-top: none;
     position: fixed;
     bottom: 0; left: 50%; transform: translateX(-50%);
