@@ -1537,7 +1537,7 @@ export default function App() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className={darkMode ? "app <div className={darkMode ? "app dark" : "app"} onClick={() => { setShowSettings(false); setShowVersionPicker(false); }}>" : "app"}>
+    <div className={darkMode ? <div className={darkMode ? "app dark" : "app"} onClick={() => { setShowSettings(false); setShowVersionPicker(false); }}>app <div className={darkMode ? "app dark" : "app"} onClick={() => { setShowSettings(false); setShowVersionPicker(false); }}>" : "app"}>
       <style>{styles}</style>
 
 {/* FIXED TOP HEADER */}
@@ -2094,8 +2094,9 @@ export default function App() {
         </div>
       )}
 
-{/* TOAST */}
-{/* SETTINGS MENU */}
+{toast && <div className="toast">{toast}</div>}
+
+      {/* SETTINGS MENU */}
       {showSettings && (
         <div style={{position:"fixed",top:"52px",right:"calc(50% - 240px)",background:"var(--parchment)",
           border:"1px solid var(--border)",borderRadius:"0 0 0 8px",zIndex:300,
