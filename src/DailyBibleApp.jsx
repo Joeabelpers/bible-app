@@ -488,6 +488,8 @@ const styles = `
   .dark .auth-overlay { background: rgba(0,0,0,0.85); }
   .dark .header { background: var(--gold); }
   .dark .tabs { background: var(--gold); }
+  .dark .tab { color: var(--gold); background: var(--parchment); }
+  .dark .tab.active { color: var(--parchment); background: var(--gold); }
 
   .app {
     font-family: 'Lato', sans-serif;
@@ -536,11 +538,10 @@ const styles = `
 
   /* SPACER — pushes content below fixed header */
   .header-spacer { height: 52px; flex-shrink:0; }
-
-  /* BOTTOM TAB BAR — fixed at bottom */
+/* BOTTOM TAB BAR — fixed at bottom */
   .tabs {
     display: flex;
-    background: var(--accent);
+    background: none;
     border-top: none;
     position: fixed;
     bottom: 0; left: 50%; transform: translateX(-50%);
@@ -552,18 +553,21 @@ const styles = `
     flex: 1; padding: 8px 2px 10px;
     font-size: 10px; font-family:'Lato',sans-serif; font-weight:700;
     text-align:center; cursor:pointer;
-    color: var(--ink);
-    border: none; background: none;
+    color: var(--accent);
+    background: var(--ink);
+    border: none;
     border-top: 3px solid transparent;
     transition: all 0.2s; white-space:nowrap;
   }
-  .tab.active { color: var(--ink); border-top-color: var(--ink); }
+  .tab.active {
+    color: var(--ink);
+    background: var(--accent);
+    border-top-color: transparent;
+  }
   .tab-icon { display:block; font-size:18px; margin-bottom:1px; line-height:1; }
   .tab-label { display:block; font-size:9px; font-weight:700; letter-spacing:0.3px; }
-
   /* BOTTOM TAB SPACER */
   .tabs-spacer { height: calc(56px + env(safe-area-inset-bottom, 0px)); flex-shrink:0; }
-
   /* DATE BAR — removed, merged into header */
   .share-btn { background:none; border:1px solid var(--gold); color:var(--gold-light); border-radius:5px; padding:3px 7px; font-family:'Lato',sans-serif; font-size:11px; cursor:pointer; transition:all 0.15s; }
   .share-btn:hover { background:var(--gold); color:var(--ink); }
