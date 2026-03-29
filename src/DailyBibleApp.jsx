@@ -487,7 +487,7 @@ const styles = `
   .dark .passage-text { color: var(--ink); }
   .dark .auth-overlay { background: rgba(0,0,0,0.85); }
   .dark .header { background: var(--gold); }
-  .dark .tabs { background: var(--gold); }
+  .dark .tabs { background: none; }
   .dark .tab { color: var(--gold); background: var(--parchment); }
   .dark .tab.active { color: var(--parchment); background: var(--gold); }
 
@@ -1531,15 +1531,20 @@ export default function App() {
     <div className={darkMode ? "app dark" : "app"}>
       <style>{styles}</style>
 
-      {/* FIXED TOP HEADER */}
+{/* FIXED TOP HEADER */}
       <div className="header">
         <div className="header-left">
-          <div className="header-title">Bible Reading</div>
+          <button className="version-btn active" onClick={() => setShowVersionPicker(true)}
+            style={{fontSize:"15px", fontWeight:"700", background:"none", border:"none", 
+            color: darkMode ? "var(--parchment)" : "var(--ink)", cursor:"pointer", padding:"4px 6px"}}>
+            {bibleVersion}
+          </button>
         </div>
         <div className="header-center">
           <button className="header-nav-btn" onClick={() => goDay(-1)}>‹</button>
           <div style={{textAlign:"center"}}>
-            <div className="header-date-display">
+            <div className="header-date-display"
+              style={{color: darkMode ? "var(--parchment)" : "var(--ink)"}}>
               {currentDate.toLocaleDateString("en-US",{month:"short",day:"numeric"})}
             </div>
             {!isToday && <button className="today-chip" onClick={goToday}>Today</button>}
@@ -1547,25 +1552,16 @@ export default function App() {
           <button className="header-nav-btn" onClick={() => goDay(1)}>›</button>
         </div>
         <div className="header-right">
-          <div className="version-switcher">
-            {VERSIONS.map(v => (
-              <button key={v} className={`version-btn${bibleVersion===v?" active":""}`}
-                onClick={() => switchVersion(v)}>{v}</button>
-            ))}
-          </div>
-          <button className="font-size-btn" onClick={() => setFontSize(p => Math.max(MIN_FONT, p-2))} disabled={fontSize<=MIN_FONT}>A−</button>
-          <button className="font-size-btn" onClick={() => setFontSize(p => Math.min(MAX_FONT, p+2))} disabled={fontSize>=MAX_FONT}>A+</button>
-          <button className="header-icon-btn" onClick={toggleDark} title={darkMode?"Light mode":"Dark mode"}
-            style={{fontSize:"18px",border:"1.5px solid var(--gold)",borderRadius:"5px",padding:"3px 5px"}}>
-            {darkMode ? "○" : "●"}
+          <button className="header-icon-btn" onClick={() => setShowSettings(true)}
+            title="Settings"
+            style={{fontSize:"18px", background:"none", border:"none",
+            color: darkMode ? "var(--parchment)" : "var(--ink)", cursor:"pointer", padding:"4px 6px"}}>
+            ⚙️
           </button>
-          <button className="header-btn" onClick={handleShare}>Share</button>
-          {user
-            ? <button className="header-btn" onClick={() => supabase.auth.signOut()}>Out</button>
-            : <button className="header-btn" onClick={() => setShowAuth(true)}>Sign in</button>}
         </div>
       </div>
       <div className="header-spacer" />
+
 
       {/* BOTTOM TAB BAR */}
       {readings.length > 0 ? (<>
