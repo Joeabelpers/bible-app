@@ -2110,7 +2110,7 @@ export default function App() {
             </button>
             <div style={{display:"flex",alignItems:"center",gap:"8px",color:"var(--ink)",fontSize:"14px",fontFamily:"Lato"}}>
               <span>Font</span>
-              <button className="font-size-btn" onClick={() => setFontSize(p => Math.max(MIN_FONT, p-2))} disabled={fontSize<=MIN_FONT}>A−</button>
+              <button className="font-size-btn" onClick={() => setFontSize(p => Math.max(MIN_FONT, p-2))} disabled={fontSize<=MIN_FONT}>A-</button>
               <button className="font-size-btn" onClick={() => setFontSize(p => Math.min(MAX_FONT, p+2))} disabled={fontSize>=MAX_FONT}>A+</button>
             </div>
             <button style={{background:"none",border:"none",cursor:"pointer",
