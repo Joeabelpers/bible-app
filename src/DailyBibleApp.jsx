@@ -1343,14 +1343,21 @@ export default function App() {
     }, 10);
   }
 
-  // ── Load comments ─────────────────────────────────────────────────────────
-  useEffect(() => { fetchComments(); }, [dateKey, panelAnchor]);
-
   async function fetchComments() {
+    // Don't fetch personal comments if not logged in
+    if (commentView === "personal" && !user) {
+      setComments([]);
+      return;
+    }
+    // Don't fetch group comments if no group selected
+    if (commentView === "group" && !selectedGroupId) {
+      setComments([]);
+      return;
+    }
     let q = supabase.from("comments").select("*").eq("date", dateKey).order("created_at");
     if (panelAnchor) q = q.eq("verse_ref", panelAnchor.verseKey);
     if (commentView === "personal") {
-      q = q.eq("visibility","personal").eq("user_id", user?.id || "none");
+      q = q.eq("visibility","personal").eq("user_id", user.id);
     } else if (commentView === "group" && selectedGroupId) {
       q = q.eq("visibility","group").eq("group_id", selectedGroupId);
     }
