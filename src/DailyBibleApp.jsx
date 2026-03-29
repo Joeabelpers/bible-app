@@ -453,28 +453,28 @@ const styles = `
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: #F1E9DB; margin:0; padding:0; }
 
-  :root {
-    --parchment: #F1E9DB;
-    --parchment-dark: #e2d8c6;
-    --ink: #221E1E;
+:root {
+    --parchment: #F5EDD6;
+    --parchment-dark: #EDE0C0;
+    --ink: #1A1A18;
     --ink-light: #5a5050;
-    --gold: #297373;
+    --gold: #2A7A7A;
     --gold-light: #3a9090;
-    --red: #297373;
-    --accent: #9BC53D;
+    --red: #2A7A7A;
+    --accent: #5CB85C;
     --border: #c9bfaa;
     --white: #faf6ef;
     --panel-h: 45vh;
   }
   .dark {
-    --parchment: #221E1E;
-    --parchment-dark: #1a1616;
-    --ink: #F1E9DB;
+    --parchment: #1A1A18;
+    --parchment-dark: #131311;
+    --ink: #F5EDD6;
     --ink-light: #a89880;
-    --gold: #3a9090;
-    --gold-light: #4db0b0;
-    --red: #4db0b0;
-    --accent: #9BC53D;
+    --gold: #2A7A7A;
+    --gold-light: #3a9090;
+    --red: #3a9090;
+    --accent: #5CB85C;
     --border: #3a3030;
     --white: #2e2828;
     --panel-h: 45vh;
@@ -486,6 +486,7 @@ const styles = `
   .dark .comment-card { background: #16213e; }
   .dark .passage-text { color: var(--ink); }
   .dark .auth-overlay { background: rgba(0,0,0,0.85); }
+  .dark .header { background: var(--gold); }
 
   .app {
     font-family: 'Lato', sans-serif;
@@ -501,7 +502,7 @@ const styles = `
 
   /* FIXED TOP HEADER — compact single bar */
   .header {
-    background: var(--ink);
+    background: var(--accent);
     color: var(--parchment);
     padding: 0 12px;
     height: 52px;
