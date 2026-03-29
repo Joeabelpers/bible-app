@@ -2071,18 +2071,18 @@ export default function App() {
         </>
       )}
 
-      {/* AUTH */}
+{/* AUTH */}
       {showAuth && (
         <div className="auth-overlay" onClick={e => { if(e.target===e.currentTarget) setShowAuth(false); }}>
           <div className="auth-card">
-            <button className="auth-close" onClick={() => setShowAuth(false)}>×</button>
+            <button className="auth-close" onClick={() => setShowAuth(false)}>x</button>
             <div className="auth-title">{authMode==="login"?"Welcome back":"Create account"}</div>
             <div className="auth-subtitle">{authMode==="login"?"Sign in to highlight and add notes":"Join the daily reading community"}</div>
             {authError && <div className="auth-error">{authError}</div>}
             <input className="auth-input" type="email" placeholder="Email address" value={authEmail} onChange={e => setAuthEmail(e.target.value)} />
             <input className="auth-input" type="password" placeholder="Password" value={authPassword} onChange={e => setAuthPassword(e.target.value)} onKeyDown={e => e.key==="Enter"&&handleAuth()} />
             <button className="auth-btn" disabled={authLoading||!authEmail||!authPassword} onClick={handleAuth}>
-              {authLoading?"Please wait…":authMode==="login"?"Sign In":"Create Account"}
+              {authLoading?"Please wait...":authMode==="login"?"Sign In":"Create Account"}
             </button>
             <div className="auth-switch">
               {authMode==="login"?"Don't have an account? ":"Already have an account? "}
@@ -2094,7 +2094,8 @@ export default function App() {
         </div>
       )}
 
-{toast && <div className="toast">{toast}</div>}
+      {/* TOAST */}
+      {toast && <div className="toast">{toast}</div>}
 
       {/* SETTINGS MENU */}
       {showSettings && (
@@ -2137,7 +2138,8 @@ export default function App() {
           </div>
         </div>
       )}
-{/* VERSION PICKER */}
+
+      {/* VERSION PICKER */}
       {showVersionPicker && (
         <div style={{position:"fixed",top:"52px",left:"calc(50% - 240px)",background:"var(--parchment)",
           border:"1px solid var(--border)",borderRadius:"0 0 8px 0",zIndex:300,
