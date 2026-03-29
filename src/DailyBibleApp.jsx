@@ -2137,7 +2137,7 @@ export default function App() {
           </div>
         </div>
       )}
-      {/* VERSION PICKER */}
+{/* VERSION PICKER */}
       {showVersionPicker && (
         <div style={{position:"fixed",top:"52px",left:"calc(50% - 240px)",background:"var(--parchment)",
           border:"1px solid var(--border)",borderRadius:"0 0 8px 0",zIndex:300,
