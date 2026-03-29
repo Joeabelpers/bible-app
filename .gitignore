@@ -21,3 +21,6 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+esv_verses_upload.json
+nkjv_verses_upload.json
+load_versions.js
