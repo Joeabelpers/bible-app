@@ -1537,7 +1537,7 @@ export default function App() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className={darkMode ? "app dark" : "app"}>
+    <div className={darkMode ? "app <div className={darkMode ? "app dark" : "app"} onClick={() => { setShowSettings(false); setShowVersionPicker(false); }}>" : "app"}>
       <style>{styles}</style>
 
 {/* FIXED TOP HEADER */}
@@ -2094,8 +2094,75 @@ export default function App() {
         </div>
       )}
 
-      {/* TOAST */}
+{/* TOAST */}
       {toast && <div className="toast">{toast}</div>}
+
+      {/* SETTINGS MENU */}
+      {showSettings && (
+        <div style={{position:"fixed",top:"52px",right:"calc(50% - 240px)",background:"var(--parchment)",
+          border:"1px solid var(--border)",borderRadius:"0 0 0 8px",zIndex:300,
+          padding:"12px",minWidth:"200px",boxShadow:"0 4px 12px rgba(0,0,0,0.15)"}}>
+          <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+            <button style={{background:"none",border:"none",cursor:"pointer",
+              color:"var(--ink)",fontFamily:"Lato",fontSize:"14px",textAlign:"left",padding:"4px 0"}}
+              onClick={() => { toggleDark(); setShowSettings(false); }}>
+              {darkMode ? "☀️ Light Mode" : "🌙 Dark Mode"}
+            </button>
+            <div style={{display:"flex",alignItems:"center",gap:"8px",color:"var(--ink)",fontSize:"14px",fontFamily:"Lato"}}>
+              <span>Font</span>
+              <button className="font-size-btn" onClick={() => setFontSize(p => Math.max(MIN_FONT, p-2))} disabled={fontSize<=MIN_FONT}>A−</button>
+              <button className="font-size-btn" onClick={() => setFontSize(p => Math.min(MAX_FONT, p+2))} disabled={fontSize>=MAX_FONT}>A+</button>
+            </div>
+            <button style={{background:"none",border:"none",cursor:"pointer",
+              color:"var(--ink)",fontFamily:"Lato",fontSize:"14px",textAlign:"left",padding:"4px 0"}}
+              onClick={() => { handleShare(); setShowSettings(false); }}>
+              📤 Share
+            </button>
+            {user
+              ? <button style={{background:"none",border:"none",cursor:"pointer",
+                  color:"var(--ink)",fontFamily:"Lato",fontSize:"14px",textAlign:"left",padding:"4px 0"}}
+                  onClick={() => { supabase.auth.signOut(); setShowSettings(false); }}>
+                  Sign Out
+                </button>
+              : <button style={{background:"none",border:"none",cursor:"pointer",
+                  color:"var(--ink)",fontFamily:"Lato",fontSize:"14px",textAlign:"left",padding:"4px 0"}}
+                  onClick={() => { setShowAuth(true); setShowSettings(false); }}>
+                  Sign In
+                </button>
+            }
+            <button style={{background:"none",border:"none",cursor:"pointer",
+              color:"var(--ink-light)",fontFamily:"Lato",fontSize:"12px",textAlign:"left",padding:"4px 0"}}
+              onClick={() => setShowSettings(false)}>
+              ✕ Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* VERSION PICKER */}
+      {showVersionPicker && (
+        <div style={{position:"fixed",top:"52px",left:"calc(50% - 240px)",background:"var(--parchment)",
+          border:"1px solid var(--border)",borderRadius:"0 0 8px 0",zIndex:300,
+          padding:"12px",minWidth:"140px",boxShadow:"0 4px 12px rgba(0,0,0,0.15)"}}>
+          <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
+            {VERSIONS.map(v => (
+              <button key={v}
+                style={{background:bibleVersion===v?"var(--accent)":"none",
+                  border:"1px solid var(--border)",borderRadius:"5px",cursor:"pointer",
+                  color:"var(--ink)",fontFamily:"Lato",fontSize:"14px",
+                  fontWeight:"700",padding:"6px 12px"}}
+                onClick={() => { switchVersion(v); setShowVersionPicker(false); }}>
+                {v}
+              </button>
+            ))}
+            <button style={{background:"none",border:"none",cursor:"pointer",
+              color:"var(--ink-light)",fontFamily:"Lato",fontSize:"12px",padding:"4px 0"}}
+              onClick={() => setShowVersionPicker(false)}>
+              ✕ Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
