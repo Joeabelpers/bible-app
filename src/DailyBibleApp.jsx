@@ -486,7 +486,8 @@ const styles = `
   .dark .comment-card { background: #16213e; }
   .dark .passage-text { color: var(--ink); }
   .dark .auth-overlay { background: rgba(0,0,0,0.85); }
-  .dark .header { background: var(--gold); }
+  .dark .header { background: var(--gold); color: var(--parchment); }
+  .dark .header button { color: var(--parchment); }
   .dark .tabs { background: none; }
   .dark .tab { color: var(--gold); background: var(--parchment); }
   .dark .tab.active { color: var(--parchment); background: var(--gold); }
@@ -560,7 +561,7 @@ const styles = `
     transition: all 0.2s; white-space:nowrap;
   }
   .tab.active {
-    color: var(--parchment);
+    color: var(--ink);
     background: var(--accent);
     border-top-color: transparent;
   }
