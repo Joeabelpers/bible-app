@@ -1537,7 +1537,7 @@ export default function App() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className={darkMode ? "app dark" : "app"} onClick={() => { setShowSettings(false); setShowVersionPicker(false); }}>
+    <div className={darkMode ? "app dark" : "app"}>
       <style>{styles}</style>
 
 {/* FIXED TOP HEADER */}
@@ -1565,7 +1565,7 @@ export default function App() {
             title="Settings"
             style={{fontSize:"18px", background:"none", border:"none",
             color: darkMode ? "var(--parchment)" : "var(--ink)", cursor:"pointer", padding:"4px 6px"}}>
-            ⚙️
+            ≡
           </button>
         </div>
       </div>
