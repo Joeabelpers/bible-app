@@ -491,6 +491,8 @@ const styles = `
   .dark .tabs { background: none; }
   .dark .tab { color: var(--gold); background: var(--parchment); }
   .dark .tab.active { color: var(--parchment); background: var(--gold); }
+  .dark .header-nav-btn { color: var(--parchment); }
+  .dark .header-date-display { color: var(--parchment); }
 
   .app {
     font-family: 'Lato', sans-serif;
