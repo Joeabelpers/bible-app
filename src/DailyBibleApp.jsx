@@ -454,27 +454,27 @@ const styles = `
   body { background: #F1E9DB; margin:0; padding:0; }
 
 :root {
-    --parchment: #F5EDD6;
-    --parchment-dark: #EDE0C0;
-    --ink: #1A1A18;
+    --parchment: #F1E9DB;
+    --parchment-dark: #E8DCC8;
+    --ink: #221E1E;
     --ink-light: #5a5050;
-    --gold: #2A7A7A;
+    --gold: #297373;
     --gold-light: #3a9090;
-    --red: #2A7A7A;
-    --accent: #5CB85C;
+    --red: #297373;
+    --accent: #9BC53D;
     --border: #c9bfaa;
     --white: #faf6ef;
     --panel-h: 45vh;
   }
   .dark {
-    --parchment: #1A1A18;
-    --parchment-dark: #131311;
-    --ink: #F5EDD6;
+    --parchment: #221E1E;
+    --parchment-dark: #1a1616;
+    --ink: #F1E9DB;
     --ink-light: #a89880;
-    --gold: #2A7A7A;
+    --gold: #297373;
     --gold-light: #3a9090;
     --red: #3a9090;
-    --accent: #5CB85C;
+    --accent: #9BC53D;
     --border: #3a3030;
     --white: #2e2828;
     --panel-h: 45vh;
@@ -553,14 +553,14 @@ const styles = `
     flex: 1; padding: 8px 2px 10px;
     font-size: 10px; font-family:'Lato',sans-serif; font-weight:700;
     text-align:center; cursor:pointer;
-    color: var(--accent);
-    background: var(--ink);
+    color: var(--ink);
+    background: var(--parchment);
     border: none;
     border-top: 3px solid transparent;
     transition: all 0.2s; white-space:nowrap;
   }
   .tab.active {
-    color: var(--ink);
+    color: var(--parchment);
     background: var(--accent);
     border-top-color: transparent;
   }
