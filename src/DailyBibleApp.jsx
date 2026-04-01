@@ -577,11 +577,14 @@ const styles = `
 
   /* PASSAGE SCROLL AREA */
   .passage-scroll {
-    overflow-y: visible;
+    overflow-y: auto;
+    height: calc(100vh - 52px - 56px - env(safe-area-inset-bottom, 0px));
+    -webkit-overflow-scrolling: touch;
   }
   .passage-container { padding: 0 0 120px; position:relative; }
-  .floating-title { position:sticky; top:0; z-index:20; text-align:center; padding:8px 16px 6px; pointer-events:none; background:transparent; }
-  .floating-title-book { font-family:'Lato',sans-serif; font-size:18px; font-weight:900; color:var(--ink); text-transform:uppercase; letter-spacing:1.5px; }
+  .floating-title { position:sticky; top:0; z-index:20; text-align:center; padding:8px 16px 6px; pointer-events:none; background:var(--parchment); }
+  .dark .floating-title { background:var(--ink); }
+  .floating-title-book { font-family:'Lato',sans-serif; font-size:18px; font-weight:900; color:var(--gold); text-transform:uppercase; letter-spacing:1.5px; }
   .floating-title-chapter { font-family:'Lato',sans-serif; font-size:18px; font-weight:900; color:var(--gold); letter-spacing:1.5px; margin-left:8px; }
   .passage-text { font-family:'Lato',sans-serif; font-size:var(--reading-size,18px); line-height:1.9; color:var(--ink); padding:4px 18px; }
   .verse { margin-bottom:5px; position:relative; cursor:default; border-radius:4px; padding:2px 4px; transition:background 0.15s; }
