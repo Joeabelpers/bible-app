@@ -1070,7 +1070,7 @@ export default function App() {
     });
   }
 
-  const VERSIONS = ['KJV', 'NKJV', 'ESV'];
+  const VERSIONS = ['KJV', 'ESV'];
   const [bibleVersion, setBibleVersion] = useState(() => {
     try { return localStorage.getItem('bibleVersion') || 'KJV'; } catch { return 'KJV'; }
   });
