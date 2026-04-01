@@ -582,8 +582,8 @@ const styles = `
     -webkit-overflow-scrolling: touch;
   }
   .passage-container { padding: 0 0 120px; position:relative; }
-  .floating-title { position:sticky; top:0; z-index:20; text-align:center; padding:8px 16px 20px; pointer-events:none; background:linear-gradient(to bottom, var(--accent) 0%, var(--parchment) 100%); }
-  .dark .floating-title { background:linear-gradient(to bottom, var(--gold) 0%, var(--ink) 100%); }
+  .floating-title { position:sticky; top:0; z-index:20; text-align:center; padding:8px 16px 24px; pointer-events:none; background:linear-gradient(to bottom, var(--accent) 0%, var(--accent) 30%, transparent 100%); }
+  .dark .floating-title { background:linear-gradient(to bottom, var(--gold) 0%, var(--gold) 30%, transparent 100%); }
   .floating-title-book { font-family:'Lato',sans-serif; font-size:18px; font-weight:900; color:var(--gold); text-transform:uppercase; letter-spacing:1.5px; }
   .floating-title-chapter { font-family:'Lato',sans-serif; font-size:18px; font-weight:900; color:var(--gold); letter-spacing:1.5px; margin-left:8px; }
   .passage-text { font-family:'Lato',sans-serif; font-size:var(--reading-size,18px); line-height:1.9; color:var(--ink); padding:4px 18px; }
