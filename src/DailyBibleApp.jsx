@@ -579,12 +579,14 @@ const styles = `
   .passage-scroll {
     overflow-y: visible;
   }
-  .passage-container { padding: 16px 18px 120px; }
-  .passage-title { font-family:'Lato',sans-serif; font-size:22px; font-weight:900; color:var(--ink); margin-bottom:14px; padding-bottom:10px; text-transform:uppercase; letter-spacing:1px; }
-  .passage-text { font-family:'Lato',sans-serif; font-size:var(--reading-size,18px); line-height:1.9; color:var(--ink); }
+  .passage-container { padding: 0 0 120px; position:relative; }
+  .floating-title { position:sticky; top:0; z-index:20; text-align:center; padding:8px 16px 6px; pointer-events:none; background:transparent; }
+  .floating-title-book { font-family:'Lato',sans-serif; font-size:18px; font-weight:900; color:var(--ink); text-transform:uppercase; letter-spacing:1.5px; }
+  .floating-title-chapter { font-family:'Lato',sans-serif; font-size:18px; font-weight:900; color:var(--gold); letter-spacing:1.5px; margin-left:8px; }
+  .passage-text { font-family:'Lato',sans-serif; font-size:var(--reading-size,18px); line-height:1.9; color:var(--ink); padding:4px 18px; }
   .verse { margin-bottom:5px; position:relative; cursor:default; border-radius:4px; padding:2px 4px; transition:background 0.15s; }
   .verse:hover { background: rgba(41,115,115,0.06); }
-  .verse-num { font-size:10px; font-family:'Lato',sans-serif; font-weight:700; color:var(--gold); vertical-align:super; margin-right:3px; }
+  .verse-num { font-size:0.75em; font-family:'Lato',sans-serif; font-weight:700; color:var(--gold); vertical-align:super; margin-right:3px; }
   .verse-footnote { font-size:0.7em; font-family:'Lato',sans-serif; font-weight:700; color:var(--red); vertical-align:super; margin-left:3px; cursor:pointer; line-height:0; }
   .verse-footnote:hover { text-decoration:underline; }
   .loading-text { font-family:'EB Garamond',serif; font-style:italic; color:var(--ink-light); font-size:16px; padding:40px 0; text-align:center; }
@@ -1009,6 +1011,7 @@ export default function App() {
   const [activeTab, setActiveTab]       = useState(0);
   const [passageVerses, setPassageVerses] = useState([]);
   const [passageLoading, setPassageLoading] = useState(false);
+  const [visibleChapter, setVisibleChapter] = useState(null);
   const [fontSize, setFontSize]         = useState(18);
   const [showSettings, setShowSettings] = useState(false);
   const [showVersionPicker, setShowVersionPicker] = useState(false);
@@ -1194,6 +1197,7 @@ export default function App() {
     if (!ref) return;
     setPassageLoading(true);
     setPassageVerses([]);
+    setVisibleChapter(null);
     const parsed = parsePassageRef(ref);
     Promise.all(parsed.books.map(({ book, chapters }) => fetchVerses(book, chapters, bibleVersion)))
       .then(r => { setPassageVerses(r.flat()); setPassageLoading(false); })
@@ -1613,36 +1617,71 @@ export default function App() {
         {activeTab < readings.length && (
           <div className="passage-scroll" style={{ paddingBottom: panelOpen ? `${panelHeight + 5}vh` : "0" }}>
             <div className="passage-container" style={{"--reading-size": fontSize+"px"}}>
-              <div className="passage-title">{readings[activeTab]}</div>
+              {(() => {
+                const parsed = parsePassageRef(readings[activeTab]);
+                const bookName = parsed.books[0].book;
+                const displayBook = bookName.toUpperCase();
+                const chapterToShow = visibleChapter ?? (passageVerses[0]?.chapter ?? "");
+                return (
+                  <div className="floating-title">
+                    <span className="floating-title-book">{displayBook}</span>
+                    <span className="floating-title-chapter">{chapterToShow}</span>
+                  </div>
+                );
+              })()}
               {passageLoading ? (
-                <div className="loading-text">Loading passage…</div>
+                <div className="loading-text" style={{padding:"40px 18px"}}>Loading passage…</div>
               ) : passageVerses.length > 0 ? (
-                <div className="passage-text">
+                <div className="passage-text"
+                  ref={el => {
+                    if (!el) return;
+                    const markers = el.querySelectorAll("[data-chapter-marker]");
+                    if (!markers.length) return;
+                    const obs = new IntersectionObserver(entries => {
+                      let topmost = null;
+                      entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                          const ch = parseInt(entry.target.dataset.chapterMarker);
+                          if (topmost === null || ch < topmost) topmost = ch;
+                        }
+                      });
+                      if (topmost !== null) setVisibleChapter(topmost);
+                    }, { threshold: 0, rootMargin: "0px 0px -80% 0px" });
+                    markers.forEach(m => obs.observe(m));
+                  }}>
                   {(() => {
                     const parsed = parsePassageRef(readings[activeTab]);
                     const bookName = parsed.books[0].book;
+                    let lastChapter = null;
                     return passageVerses.map((v, i) => {
                       const vKey = `${bookName}-${v.chapter}-${v.verse}`;
                       const anns = annotations[vKey] || [];
                       const fnCount = footnoteCounts[vKey] || 0;
+                      const isNewChapter = v.chapter !== lastChapter;
+                      lastChapter = v.chapter;
                       return (
-                        <p key={i} className="verse"
-                          onMouseUp={e => handleVerseMouseUp(e, {...v, book: bookName})}
-                          onTouchEnd={e => handleVerseMouseUp(e, {...v, book: bookName})}>
-                          <span className="verse-num">{v.verse}</span>
-                          <span className="verse-body"><AnnotatedVerse text={v.text} annotations={anns} /></span>
-                          {fnCount > 0 && (
-                            <span className="verse-footnote" onClick={e => { e.stopPropagation(); openPanelForVerse(vKey, `${v.chapter}:${v.verse}`); }}>
-                              {supNum(fnCount)}
-                            </span>
+                        <React.Fragment key={i}>
+                          {isNewChapter && (
+                            <span data-chapter-marker={v.chapter} style={{display:"block",height:0,overflow:"hidden"}} />
                           )}
-                        </p>
+                          <p className="verse"
+                            onMouseUp={e => handleVerseMouseUp(e, {...v, book: bookName})}
+                            onTouchEnd={e => handleVerseMouseUp(e, {...v, book: bookName})}>
+                            <span className="verse-num">{v.verse}</span>
+                            <span className="verse-body"><AnnotatedVerse text={v.text} annotations={anns} /></span>
+                            {fnCount > 0 && (
+                              <span className="verse-footnote" onClick={e => { e.stopPropagation(); openPanelForVerse(vKey, `${v.chapter}:${v.verse}`); }}>
+                                {supNum(fnCount)}
+                              </span>
+                            )}
+                          </p>
+                        </React.Fragment>
                       );
                     });
                   })()}
                 </div>
               ) : (
-                <div className="loading-text">Passage text unavailable. <a href={`https://www.biblegateway.com/passage/?search=${encodeURIComponent(readings[activeTab])}&version=KJV`} target="_blank" rel="noreferrer" style={{color:"#8b6914"}}>BibleGateway ↗</a></div>
+                <div className="loading-text" style={{padding:"40px 18px"}}>Passage text unavailable. <a href={`https://www.biblegateway.com/passage/?search=${encodeURIComponent(readings[activeTab])}&version=KJV`} target="_blank" rel="noreferrer" style={{color:"#8b6914"}}>BibleGateway ↗</a></div>
               )}
             </div>
           </div>
