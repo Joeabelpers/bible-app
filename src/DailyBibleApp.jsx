@@ -1660,7 +1660,7 @@ export default function App() {
                       const isNewChapter = v.chapter !== lastChapter;
                       lastChapter = v.chapter;
                       return (
-                        <React.Fragment key={i}>
+                        <div key={i}>
                           {isNewChapter && (
                             <span data-chapter-marker={v.chapter} style={{display:"block",height:0,overflow:"hidden"}} />
                           )}
@@ -1675,7 +1675,7 @@ export default function App() {
                               </span>
                             )}
                           </p>
-                        </React.Fragment>
+                        </div>
                       );
                     });
                   })()}
