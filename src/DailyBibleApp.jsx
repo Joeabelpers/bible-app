@@ -749,13 +749,45 @@ const styles = `
     .app { max-width: 100%; }
     .header { max-width: 100%; left: 0; transform: none; width: 100%; }
     .tabs { max-width: 100%; left: 0; transform: none; width: 100%; }
-    .wide-body { display: flex; flex-direction: row; flex: 1; overflow: hidden; height: calc(100vh - 52px - calc(56px + env(safe-area-inset-bottom, 0px))); }
-    .wide-body .passage-scroll { height: 100%; flex: 1; padding-bottom: 0 !important; }
-    .wide-comments-panel { width: 340px; flex-shrink: 0; border-left: 2px solid var(--border); background: var(--white); display: flex; flex-direction: column; overflow: hidden; }
-    .dark .wide-comments-panel { background: var(--parchment-dark); }
-    .wide-comments-panel .panel-drag-handle { display: none; }
+    .wide-wrapper { display: flex; flex-direction: column; flex: 1; height: calc(100vh - 52px - calc(56px + env(safe-area-inset-bottom, 0px))); overflow: hidden; }
+    .wide-body { display: flex; flex-direction: row; flex: 1; overflow: hidden; }
+    .wide-body .passage-scroll { height: 100%; flex: 1; padding-bottom: 0 !important; overflow-y: auto; }
+    .wide-notes-col { width: 320px; flex-shrink: 0; border-left: 2px solid var(--border); background: var(--white); overflow-y: auto; position: relative; }
+    .dark .wide-notes-col { background: var(--parchment-dark); }
     .bottom-panel { display: none !important; }
     .panel-backdrop { display: none !important; }
+
+    /* Unified header spanning both columns */
+    .wide-unified-header {
+      display: flex; align-items: center;
+      background: var(--accent);
+      padding: 8px 16px 10px;
+      flex-shrink: 0;
+      border-bottom: none;
+    }
+    .dark .wide-unified-header { background: var(--gold); }
+    .wide-unified-header-left { flex: 1; display: flex; align-items: center; }
+    .wide-unified-header-right { display: flex; align-items: center; gap: 6px; }
+    .wide-notes-label { font-family:'Lato',sans-serif; font-size:14px; font-weight:900; color:var(--ink); letter-spacing:1px; text-transform:uppercase; opacity:0.7; margin-right: 8px; }
+    .wide-toggle-btn { padding:3px 10px; border-radius:12px; border:1px solid rgba(0,0,0,0.2); background:none; font-family:'Lato',sans-serif; font-size:11px; font-weight:700; color:var(--ink); cursor:pointer; transition:all 0.2s; opacity:0.75; }
+    .wide-toggle-btn.active { background:rgba(0,0,0,0.15); opacity:1; border-color:transparent; }
+
+    /* Note cards in the right column */
+    .wide-note-card { margin: 0 10px 8px; padding: 8px 10px; background: var(--parchment); border: 1px solid var(--border); border-radius: 8px; font-size: 13px; }
+    .dark .wide-note-card { background: var(--white); }
+    .wide-note-verse-ref { font-family:'Lato',sans-serif; font-size:10px; font-weight:700; color:var(--gold); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:3px; }
+    .wide-note-body { font-family:'EB Garamond',serif; font-size:14px; line-height:1.5; color:var(--ink); }
+    .wide-note-author { font-family:'Lato',sans-serif; font-size:10px; color:var(--ink-light); margin-top:4px; }
+    .wide-note-form { margin: 0 10px 12px; }
+    .wide-note-form textarea { width:100%; border:1px solid var(--border); border-radius:6px; padding:7px 9px; font-family:'EB Garamond',serif; font-size:14px; background:var(--white); color:var(--ink); resize:none; min-height:60px; outline:none; }
+    .wide-note-form textarea:focus { border-color:var(--gold); }
+    .wide-note-form-actions { display:flex; gap:6px; margin-top:5px; align-items:center; }
+    .wide-note-submit { background:var(--gold); color:var(--ink); border:none; border-radius:6px; padding:5px 14px; font-family:'Lato',sans-serif; font-size:11px; font-weight:700; cursor:pointer; transition:opacity 0.2s; }
+    .wide-note-submit:disabled { opacity:0.4; cursor:not-allowed; }
+    .wide-note-cancel { background:none; border:none; font-family:'Lato',sans-serif; font-size:11px; color:var(--ink-light); cursor:pointer; }
+    .wide-notes-empty { font-family:'EB Garamond',serif; font-style:italic; color:var(--ink-light); font-size:13px; padding:16px 14px; }
+    .wide-notes-signin { font-family:'EB Garamond',serif; font-style:italic; color:var(--ink-light); font-size:13px; padding:12px 14px; }
+    .wide-notes-signin button { background:none; border:none; color:var(--gold); cursor:pointer; text-decoration:underline; font-size:13px; font-family:'EB Garamond',serif; font-style:italic; }
   }
 
   /* COMMENT VISIBILITY WHEN POSTING */
@@ -1217,6 +1249,27 @@ export default function App() {
     setProfileView("main"); showToast("Group deleted");
   }
 
+  // ── Auto-fetch comments when view/date/user changes ──────────────────────
+  useEffect(() => {
+    fetchComments();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [commentView, selectedGroupId, dateKey, user, panelAnchor, isWide]);
+
+  // ── Measure verse offsets for parallel notes column ──────────────────────
+  useEffect(() => {
+    if (!isWide || passageVerses.length === 0) return;
+    const measure = () => {
+      const offsets = {};
+      Object.entries(verseEls.current).forEach(([key, el]) => {
+        if (el) offsets[key] = el.offsetTop;
+      });
+      setVerseOffsets(offsets);
+    };
+    // Small delay to let DOM settle after render
+    const t = setTimeout(measure, 80);
+    return () => clearTimeout(t);
+  }, [passageVerses, isWide, activeTab]);
+
   // ── Load passage ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (activeTab >= readings.length) return;
@@ -1389,7 +1442,7 @@ export default function App() {
       return;
     }
     let q = supabase.from("comments").select("*").eq("date", dateKey).order("created_at");
-    if (panelAnchor) q = q.eq("verse_ref", panelAnchor.verseKey);
+    if (!isWide && panelAnchor) q = q.eq("verse_ref", panelAnchor.verseKey);
     if (commentView === "personal") {
       q = q.eq("visibility","personal").eq("user_id", user.id);
     } else if (commentView === "group" && selectedGroupId) {
@@ -1416,6 +1469,7 @@ export default function App() {
     });
     setCommentText("");
     await fetchComments();
+    if (isWide) setPanelAnchor(null);
     setSubmitting(false);
   }
 
@@ -1509,6 +1563,8 @@ export default function App() {
 
   // ── Panel drag ────────────────────────────────────────────────────────────
   const dragRef = useRef(null);
+  const verseEls = useRef({}); // verseKey → DOM element
+  const [verseOffsets, setVerseOffsets] = useState({}); // verseKey → offsetTop relative to passage container
   function onDragStart(e) {
     const startY = e.type === "touchstart" ? e.touches[0].clientY : e.clientY;
     const startH = panelHeight;
@@ -1541,8 +1597,7 @@ export default function App() {
 
   function openPanelForVerse(verseKey, text) {
     setPanelAnchor({ verseKey, text });
-    setPanelOpen(true);
-    fetchComments();
+    if (!isWide) setPanelOpen(true);
   }
 
   async function handleAuth() {
@@ -1639,29 +1694,61 @@ export default function App() {
         </div>
 
         {/* PASSAGE SCROLL AREA */}
-        {activeTab < readings.length && (
+        {activeTab < readings.length && (() => {
+          const parsed = parsePassageRef(readings[activeTab]);
+          const bookName = parsed.books[0].book;
+          const displayBook = bookName.toUpperCase();
+          const allChapters = parsed.books[0].chapters;
+          const chapterToShow = visibleChapter ?? (passageVerses[0]?.chapter ?? "");
+          return (
+          <div className={isWide ? "wide-wrapper" : ""}>
+
+          {/* UNIFIED HEADER — wide screens only, spans both columns */}
+          {isWide && (
+            <div className="wide-unified-header">
+              <div className="wide-unified-header-left">
+                <span className="floating-title-book" style={{color:"var(--ink)"}}>{displayBook}</span>
+                {allChapters.length > 1 ? (
+                  allChapters.map(ch => (
+                    <span key={ch} className="floating-title-chapter" style={{
+                      color:"var(--ink)", opacity: ch === chapterToShow ? 1 : 0.35, marginLeft:"8px"
+                    }}>{ch}</span>
+                  ))
+                ) : (
+                  <span className="floating-title-chapter" style={{color:"var(--ink)", marginLeft:"4px"}}>{chapterToShow}</span>
+                )}
+                <span className="wide-notes-label" style={{marginLeft:"16px"}}>Notes</span>
+              </div>
+              <div className="wide-unified-header-right">
+                {user && (<>
+                  <button className={`wide-toggle-btn${commentView==="personal"?" active":""}`}
+                    onClick={() => setCommentView("personal")}>🔒 Private</button>
+                  {userGroups.filter(m=>m.status==="approved").length > 0 && (
+                    <button className={`wide-toggle-btn${commentView==="group"?" active":""}`}
+                      onClick={() => setCommentView("group")}>👥 Public</button>
+                  )}
+                </>)}
+              </div>
+            </div>
+          )}
+
           <div className={isWide ? "wide-body" : ""}>
           <div className="passage-scroll" style={{ paddingBottom: !isWide && panelOpen ? `${panelHeight + 5}vh` : "0" }}>
             <div className="passage-container" style={{"--reading-size": fontSize+"px"}}>
               {(() => {
-                const parsed = parsePassageRef(readings[activeTab]);
-                const bookName = parsed.books[0].book;
-                const displayBook = bookName.toUpperCase();
-                const allChapters = parsed.books[0].chapters;
-                const chapterToShow = visibleChapter ?? (passageVerses[0]?.chapter ?? "");
-                return (
+                return isWide ? null : (
                   <div className="floating-title" style={{background: darkMode ? "var(--gold)" : "var(--accent)"}}>
-                    <span className="floating-title-book" style={{color: darkMode ? "var(--ink)" : "var(--ink)"}}>{displayBook}</span>
+                    <span className="floating-title-book" style={{color:"var(--ink)"}}>{displayBook}</span>
                     {allChapters.length > 1 ? (
                       allChapters.map(ch => (
                         <span key={ch} className="floating-title-chapter" style={{
-                          color: darkMode ? "var(--ink)" : "var(--ink)",
+                          color:"var(--ink)",
                           opacity: ch === chapterToShow ? 1 : 0.35,
-                          marginLeft: "8px"
+                          marginLeft:"8px"
                         }}>{ch}</span>
                       ))
                     ) : (
-                      <span className="floating-title-chapter" style={{color: darkMode ? "var(--ink)" : "var(--ink)"}}>{chapterToShow}</span>
+                      <span className="floating-title-chapter" style={{color:"var(--ink)"}}>{chapterToShow}</span>
                     )}
                   </div>
                 );
@@ -1697,7 +1784,9 @@ export default function App() {
                       const isNewChapter = v.chapter !== lastChapter;
                       lastChapter = v.chapter;
                       return (
-                        <div key={i}>
+                        <div key={i} ref={el => {
+                          if (el) verseEls.current[vKey] = el;
+                        }}>
                           {isNewChapter && (
                             <span data-chapter-marker={v.chapter} style={{display:"block",height:0,overflow:"hidden"}} />
                           )}
@@ -1723,87 +1812,62 @@ export default function App() {
             </div>
           </div>
 
-          {/* INLINE COMMENTS PANEL — wide screens only */}
-          {isWide && (
-            <div className="wide-comments-panel">
-              <div className="panel-header">
-                <div className="panel-title">
-                  Discussion
-                  <span className="panel-count">{comments.length}</span>
-                </div>
-              </div>
-              {user && (
-                <div className="comment-view-toggle">
-                  <button className={`cv-btn${commentView==="personal"?" active":""}`}
-                    onClick={() => setCommentView("personal")}>🔒 Private</button>
-                  {userGroups.filter(m=>m.status==="approved").length > 0 && (
-                    <button className={`cv-btn${commentView==="group"?" active":""}`}
-                      onClick={() => setCommentView("group")}>👥 Public</button>
+          {/* PARALLEL NOTES COLUMN — wide screens only */}
+          {isWide && (() => {
+            const anchoredNotes = comments.filter(c => c.verse_ref);
+            return (
+              <div className="wide-notes-col">
+                <div style={{position:"relative", minHeight:"100%", paddingBottom:"80px"}}>
+                  {!user && (
+                    <div className="wide-notes-signin">
+                      <button onClick={() => setShowAuth(true)}>Sign in</button> to add verse notes.
+                    </div>
                   )}
-                </div>
-              )}
-              {commentView==="group" && userGroups.filter(m=>m.status==="approved").length > 1 && (
-                <select className="group-select" value={selectedGroupId||""}
-                  onChange={e => setSelectedGroupId(e.target.value)}>
-                  {userGroups.filter(m=>m.status==="approved").map(m => (
-                    <option key={m.group_id} value={m.group_id}>{m.groups?.name}</option>
-                  ))}
-                </select>
-              )}
-              <div className="panel-scroll">
-                {!user && <p className="sign-in-prompt"><button className="sign-in-prompt-btn" onClick={()=>setShowAuth(true)}>Sign in</button> to add notes.</p>}
-                {user && comments.length === 0 && <div className="no-comments">No {commentView==="group"?"public ":"private "}notes yet.</div>}
-                {comments.map(c => (
-                  <div key={c.id} className="comment-card">
-                    <div className="comment-header">
-                      <span className="comment-author">
-                        {c.username}
-                        <span className={`comment-badge ${c.visibility||"personal"}`}>
-                          {c.visibility==="group" ? "👥" : "🔒"}
-                        </span>
-                      </span>
-                      <span className="comment-time">{new Date(c.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}</span>
-                    </div>
-                    {c.anchor_text && <div className="comment-anchor">"{c.anchor_text.length > 50 ? c.anchor_text.slice(0,50)+"…" : c.anchor_text}"</div>}
-                    <div className="comment-body">{c.text}</div>
-                  </div>
-                ))}
-                {user && (
-                  <div className="comment-form">
-                    <div className="post-visibility">
-                      <button className={`pv-btn${postVisibility==="personal"?" active":""}`}
-                        onClick={() => setPostVisibility("personal")}>🔒 Private</button>
-                      {userGroups.filter(m=>m.status==="approved").length > 0 && (
-                        <button className={`pv-btn${postVisibility==="group"?" active":""}`}
-                          onClick={() => setPostVisibility("group")}>👥 Public</button>
-                      )}
-                    </div>
-                    {postVisibility==="group" && userGroups.filter(m=>m.status==="approved").length > 1 && (
-                      <select className="pv-group-select" value={postGroupId||""}
-                        onChange={e => setPostGroupId(e.target.value)}>
-                        {userGroups.filter(m=>m.status==="approved").map(m => (
-                          <option key={m.group_id} value={m.group_id}>{m.groups?.name}</option>
-                        ))}
-                      </select>
-                    )}
-                    {postVisibility==="group" && userGroups.filter(m=>m.status==="approved").length === 0 && (
-                      <div style={{fontSize:"12px",color:"var(--ink-light)",fontFamily:"'Lato',sans-serif",marginBottom:"6px"}}>
-                        You're not in any groups yet. <button style={{background:"none",border:"none",color:"var(--gold)",cursor:"pointer",fontSize:"12px"}} onClick={() => { setActiveTab(readings.length+2); }}>Join one →</button>
+                  {user && anchoredNotes.length === 0 && !panelAnchor && (
+                    <div className="wide-notes-empty">Tap a verse number to add a note.</div>
+                  )}
+                  {anchoredNotes.map(c => {
+                    const offset = verseOffsets[c.verse_ref] ?? 8;
+                    return (
+                      <div key={c.id} className="wide-note-card" style={{marginTop: offset > 8 ? offset : 8}}>
+                        <div className="wide-note-verse-ref">{c.anchor_text || c.verse_ref}</div>
+                        <div className="wide-note-body">{c.text}</div>
+                        <div className="wide-note-author">{c.username} · {new Date(c.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</div>
                       </div>
-                    )}
-                    <textarea className="comment-textarea"
-                      placeholder="Share a reflection…"
-                      value={commentText} onChange={e => setCommentText(e.target.value)} />
-                    <button className="comment-submit" disabled={!commentText.trim()||submitting} onClick={handlePostComment}>
-                      {submitting ? "Posting…" : "Post"}
-                    </button>
-                  </div>
-                )}
+                    );
+                  })}
+                  {user && panelAnchor && (() => {
+                    const offset = verseOffsets[panelAnchor.verseKey] ?? 8;
+                    return (
+                      <div className="wide-note-form" style={{marginTop: offset > 8 ? offset : 8}}>
+                        <div className="wide-note-verse-ref">Note on {panelAnchor.text}</div>
+                        <textarea placeholder="Add a note on this verse…" value={commentText}
+                          onChange={e => setCommentText(e.target.value)} autoFocus />
+                        <div className="wide-note-form-actions">
+                          <button className="wide-note-submit" disabled={!commentText.trim()||submitting} onClick={handlePostComment}>
+                            {submitting ? "Saving…" : "Save"}
+                          </button>
+                          <button className="wide-note-cancel" onClick={() => { setPanelAnchor(null); setCommentText(""); }}>Cancel</button>
+                          {userGroups.filter(m=>m.status==="approved").length > 0 && (
+                            <div style={{marginLeft:"auto",display:"flex",gap:"4px"}}>
+                              <button className={`wide-toggle-btn${postVisibility==="personal"?" active":""}`}
+                                onClick={() => setPostVisibility("personal")}>🔒</button>
+                              <button className={`wide-toggle-btn${postVisibility==="group"?" active":""}`}
+                                onClick={() => setPostVisibility("group")}>👥</button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
-            </div>
-          )}
-          </div>
-        )}
+            );
+          })()}
+          </div>{/* end wide-body */}
+          </div>{/* end wide-wrapper */}
+          );
+        })()}
       </>) : (
         <div className="no-readings">No reading scheduled for this date.</div>
       )}
