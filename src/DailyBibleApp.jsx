@@ -522,14 +522,14 @@ const styles = `
     width: 100%; max-width: 480px;
     z-index: 200;
   }
-  .header-left { display:flex; flex-direction:column; justify-content:center; }
+  .header-left { display:flex; flex-direction:column; justify-content:center; min-width:60px; }
   .header-title { font-family:'Lato',sans-serif; font-size:20px; font-weight:900; letter-spacing:0.3px; line-height:1.1; text-transform:uppercase; }
   .header-date { display:none; }
   .header-center { display:flex; align-items:center; gap:4px; }
   .header-nav-btn { background:none; border:none; color:var(--ink); font-size:20px; cursor:pointer; padding:4px 6px; line-height:1; transition:color 0.15s; }
   .header-nav-btn:hover { color:var(--gold); }
   .header-date-display { font-family:'Lato',sans-serif; font-size:16px; font-weight:700; color:var(--ink); min-width:70px; text-align:center; white-space:nowrap; }
-  .header-right { display:flex; align-items:center; gap:5px; }
+  .header-right { display:flex; align-items:center; gap:5px; min-width:60px; justify-content:flex-end; }
   .header-icon-btn { background:none; border:none; color:var(--ink); cursor:pointer; padding:4px; font-size:15px; line-height:1; border-radius:4px; transition:all 0.15s; }
   .header-icon-btn:hover { color:var(--gold); }
   .font-size-btn { background:none; border:1px solid var(--gold); border-radius:5px; padding:3px 7px; font-size:12px; font-weight:700; cursor:pointer; color:var(--gold-light); font-family:'Lato',sans-serif; line-height:1; transition:all 0.15s; }
@@ -1624,11 +1624,22 @@ export default function App() {
                 const parsed = parsePassageRef(readings[activeTab]);
                 const bookName = parsed.books[0].book;
                 const displayBook = bookName.toUpperCase();
+                const allChapters = parsed.books[0].chapters;
                 const chapterToShow = visibleChapter ?? (passageVerses[0]?.chapter ?? "");
                 return (
                   <div className="floating-title" style={{background: darkMode ? "var(--gold)" : "var(--accent)"}}>
                     <span className="floating-title-book" style={{color: darkMode ? "var(--ink)" : "var(--ink)"}}>{displayBook}</span>
-                    <span className="floating-title-chapter" style={{color: darkMode ? "var(--ink)" : "var(--ink)"}}>{chapterToShow}</span>
+                    {allChapters.length > 1 ? (
+                      allChapters.map(ch => (
+                        <span key={ch} className="floating-title-chapter" style={{
+                          color: darkMode ? "var(--ink)" : "var(--ink)",
+                          opacity: ch === chapterToShow ? 1 : 0.35,
+                          marginLeft: "8px"
+                        }}>{ch}</span>
+                      ))
+                    ) : (
+                      <span className="floating-title-chapter" style={{color: darkMode ? "var(--ink)" : "var(--ink)"}}>{chapterToShow}</span>
+                    )}
                   </div>
                 );
               })()}
