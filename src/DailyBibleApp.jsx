@@ -1864,8 +1864,8 @@ export default function App() {
               </div>
             );
           })()}
-          </div>{/* end wide-body */}
-          </div>{/* end wide-wrapper */}
+          </div>
+          </div>
           );
         })()}
       </>) : (
