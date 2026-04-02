@@ -1562,21 +1562,19 @@ export default function App() {
           </button>
         </div>
         <div className="header-center">
-          <button className="header-nav-btn" style={{color: darkMode ? "var(--parchment)" : "var(--ink)"}} onClick={() => goDay(-1)}>‹</button>
+          <button className="header-nav-btn" onClick={() => goDay(-1)}>‹</button>
           <div style={{textAlign:"center"}}>
-            <div className="header-date-display"
-              style={{color: darkMode ? "var(--parchment)" : "var(--ink)"}}>
+            <div className="header-date-display">
               {currentDate.toLocaleDateString("en-US",{month:"short",day:"numeric"})}
             </div>
             {!isToday && <button className="today-chip" onClick={goToday}>Today</button>}
           </div>
-          <button className="header-nav-btn" style={{color: darkMode ? "var(--parchment)" : "var(--ink)"}} onClick={() => goDay(1)}>›</button>
+          <button className="header-nav-btn" onClick={() => goDay(1)}>›</button>
         </div>
         <div className="header-right">
           <button className="header-icon-btn" onClick={() => setShowSettings(true)}
             title="Settings"
-            style={{fontSize:"18px", background:"none", border:"none",
-            color: darkMode ? "var(--parchment)" : "var(--ink)", cursor:"pointer", padding:"4px 6px"}}>
+            style={{fontSize:"18px", background:"none", border:"none", cursor:"pointer", padding:"4px 6px"}}>
             ≡
           </button>
         </div>
