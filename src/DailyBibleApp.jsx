@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
 // ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
@@ -744,6 +744,20 @@ const styles = `
   .cv-btn.active { background:var(--red); color:white; border-color:var(--red); }
   .group-select { width:100%; margin:4px 16px 0; padding:5px 8px; border:1px solid var(--border); border-radius:8px; background:var(--parchment); color:var(--ink); font-family:'Lato',sans-serif; font-size:12px; outline:none; width:calc(100% - 32px); }
 
+  /* WIDE SCREEN / LANDSCAPE LAYOUT */
+  @media (min-width: 768px), (orientation: landscape) and (max-height: 500px) {
+    .app { max-width: 100%; }
+    .header { max-width: 100%; left: 0; transform: none; width: 100%; }
+    .tabs { max-width: 100%; left: 0; transform: none; width: 100%; }
+    .wide-body { display: flex; flex-direction: row; flex: 1; overflow: hidden; height: calc(100vh - 52px - calc(56px + env(safe-area-inset-bottom, 0px))); }
+    .wide-body .passage-scroll { height: 100%; flex: 1; padding-bottom: 0 !important; }
+    .wide-comments-panel { width: 340px; flex-shrink: 0; border-left: 2px solid var(--border); background: var(--white); display: flex; flex-direction: column; overflow: hidden; }
+    .dark .wide-comments-panel { background: var(--parchment-dark); }
+    .wide-comments-panel .panel-drag-handle { display: none; }
+    .bottom-panel { display: none !important; }
+    .panel-backdrop { display: none !important; }
+  }
+
   /* COMMENT VISIBILITY WHEN POSTING */
   .post-visibility { display:flex; gap:6px; margin-bottom:8px; }
   .pv-btn { flex:1; padding:5px 6px; border-radius:16px; border:1px solid var(--border); background:none; font-family:'Lato',sans-serif; font-size:11px; font-weight:700; color:var(--ink-light); cursor:pointer; transition:all 0.2s; text-align:center; }
@@ -1016,6 +1030,8 @@ export default function App() {
   const [activeTab, setActiveTab]       = useState(0);
   const [passageVerses, setPassageVerses] = useState([]);
   const [passageLoading, setPassageLoading] = useState(false);
+  const checkWide = () => window.innerWidth >= 768 || (window.innerWidth > window.innerHeight && window.innerHeight <= 500);
+  const [isWide, setIsWide] = useState(checkWide);
   const [visibleChapter, setVisibleChapter] = useState(null);
   const [fontSize, setFontSize]         = useState(18);
   const [showSettings, setShowSettings] = useState(false);
@@ -1112,6 +1128,12 @@ export default function App() {
     supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
     const { data: l } = supabase.auth.onAuthStateChange((_e, s) => setUser(s?.user ?? null));
     return () => l.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => setIsWide(checkWide());
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   // ── Load user's groups ────────────────────────────────────────────────────
@@ -1618,7 +1640,8 @@ export default function App() {
 
         {/* PASSAGE SCROLL AREA */}
         {activeTab < readings.length && (
-          <div className="passage-scroll" style={{ paddingBottom: panelOpen ? `${panelHeight + 5}vh` : "0" }}>
+          <div className={isWide ? "wide-body" : ""}>
+          <div className="passage-scroll" style={{ paddingBottom: !isWide && panelOpen ? `${panelHeight + 5}vh` : "0" }}>
             <div className="passage-container" style={{"--reading-size": fontSize+"px"}}>
               {(() => {
                 const parsed = parsePassageRef(readings[activeTab]);
@@ -1699,6 +1722,87 @@ export default function App() {
               )}
             </div>
           </div>
+
+          {/* INLINE COMMENTS PANEL — wide screens only */}
+          {isWide && (
+            <div className="wide-comments-panel">
+              <div className="panel-header">
+                <div className="panel-title">
+                  Discussion
+                  <span className="panel-count">{comments.length}</span>
+                </div>
+              </div>
+              {user && (
+                <div className="comment-view-toggle">
+                  <button className={`cv-btn${commentView==="personal"?" active":""}`}
+                    onClick={() => setCommentView("personal")}>🔒 Private</button>
+                  {userGroups.filter(m=>m.status==="approved").length > 0 && (
+                    <button className={`cv-btn${commentView==="group"?" active":""}`}
+                      onClick={() => setCommentView("group")}>👥 Public</button>
+                  )}
+                </div>
+              )}
+              {commentView==="group" && userGroups.filter(m=>m.status==="approved").length > 1 && (
+                <select className="group-select" value={selectedGroupId||""}
+                  onChange={e => setSelectedGroupId(e.target.value)}>
+                  {userGroups.filter(m=>m.status==="approved").map(m => (
+                    <option key={m.group_id} value={m.group_id}>{m.groups?.name}</option>
+                  ))}
+                </select>
+              )}
+              <div className="panel-scroll">
+                {!user && <p className="sign-in-prompt"><button className="sign-in-prompt-btn" onClick={()=>setShowAuth(true)}>Sign in</button> to add notes.</p>}
+                {user && comments.length === 0 && <div className="no-comments">No {commentView==="group"?"public ":"private "}notes yet.</div>}
+                {comments.map(c => (
+                  <div key={c.id} className="comment-card">
+                    <div className="comment-header">
+                      <span className="comment-author">
+                        {c.username}
+                        <span className={`comment-badge ${c.visibility||"personal"}`}>
+                          {c.visibility==="group" ? "👥" : "🔒"}
+                        </span>
+                      </span>
+                      <span className="comment-time">{new Date(c.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}</span>
+                    </div>
+                    {c.anchor_text && <div className="comment-anchor">"{c.anchor_text.length > 50 ? c.anchor_text.slice(0,50)+"…" : c.anchor_text}"</div>}
+                    <div className="comment-body">{c.text}</div>
+                  </div>
+                ))}
+                {user && (
+                  <div className="comment-form">
+                    <div className="post-visibility">
+                      <button className={`pv-btn${postVisibility==="personal"?" active":""}`}
+                        onClick={() => setPostVisibility("personal")}>🔒 Private</button>
+                      {userGroups.filter(m=>m.status==="approved").length > 0 && (
+                        <button className={`pv-btn${postVisibility==="group"?" active":""}`}
+                          onClick={() => setPostVisibility("group")}>👥 Public</button>
+                      )}
+                    </div>
+                    {postVisibility==="group" && userGroups.filter(m=>m.status==="approved").length > 1 && (
+                      <select className="pv-group-select" value={postGroupId||""}
+                        onChange={e => setPostGroupId(e.target.value)}>
+                        {userGroups.filter(m=>m.status==="approved").map(m => (
+                          <option key={m.group_id} value={m.group_id}>{m.groups?.name}</option>
+                        ))}
+                      </select>
+                    )}
+                    {postVisibility==="group" && userGroups.filter(m=>m.status==="approved").length === 0 && (
+                      <div style={{fontSize:"12px",color:"var(--ink-light)",fontFamily:"'Lato',sans-serif",marginBottom:"6px"}}>
+                        You're not in any groups yet. <button style={{background:"none",border:"none",color:"var(--gold)",cursor:"pointer",fontSize:"12px"}} onClick={() => { setActiveTab(readings.length+2); }}>Join one →</button>
+                      </div>
+                    )}
+                    <textarea className="comment-textarea"
+                      placeholder="Share a reflection…"
+                      value={commentText} onChange={e => setCommentText(e.target.value)} />
+                    <button className="comment-submit" disabled={!commentText.trim()||submitting} onClick={handlePostComment}>
+                      {submitting ? "Posting…" : "Post"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          </div>{/* end wide-body */}
         )}
       </>) : (
         <div className="no-readings">No reading scheduled for this date.</div>
@@ -2053,14 +2157,14 @@ export default function App() {
                 📍 {panelAnchor.text.length > 60 ? panelAnchor.text.slice(0,60)+"…" : panelAnchor.text}
               </div>
             )}
-            {/* VIEW TOGGLE — personal vs group */}
+            {/* VIEW TOGGLE — private vs public */}
             {user && (
               <div className="comment-view-toggle">
                 <button className={`cv-btn${commentView==="personal"?" active":""}`}
-                  onClick={() => setCommentView("personal")}>🔒 Personal</button>
+                  onClick={() => setCommentView("personal")}>🔒 Private</button>
                 {userGroups.filter(m=>m.status==="approved").length > 0 && (
                   <button className={`cv-btn${commentView==="group"?" active":""}`}
-                    onClick={() => setCommentView("group")}>👥 Group</button>
+                    onClick={() => setCommentView("group")}>👥 Public</button>
                 )}
               </div>
             )}
@@ -2074,14 +2178,14 @@ export default function App() {
             )}
             <div className="panel-scroll">
               {!user && <p className="sign-in-prompt"><button className="sign-in-prompt-btn" onClick={()=>setShowAuth(true)}>Sign in</button> to add notes.</p>}
-              {user && comments.length === 0 && <div className="no-comments">No {commentView==="group"?"group ":""}notes yet.</div>}
+              {user && comments.length === 0 && <div className="no-comments">No {commentView==="group"?"public ":"private "}notes yet.</div>}
               {comments.map(c => (
                 <div key={c.id} className="comment-card">
                   <div className="comment-header">
                     <span className="comment-author">
                       {c.username}
                       <span className={`comment-badge ${c.visibility||"personal"}`}>
-                        {c.visibility==="group" ? "👥 group" : "🔒"}
+                        {c.visibility==="group" ? "👥" : "🔒"}
                       </span>
                     </span>
                     <span className="comment-time">{new Date(c.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}</span>
@@ -2095,10 +2199,10 @@ export default function App() {
                   {/* POST VISIBILITY */}
                   <div className="post-visibility">
                     <button className={`pv-btn${postVisibility==="personal"?" active":""}`}
-                      onClick={() => setPostVisibility("personal")}>🔒 Personal</button>
+                      onClick={() => setPostVisibility("personal")}>🔒 Private</button>
                     {userGroups.filter(m=>m.status==="approved").length > 0 && (
                       <button className={`pv-btn${postVisibility==="group"?" active":""}`}
-                        onClick={() => setPostVisibility("group")}>👥 Group</button>
+                        onClick={() => setPostVisibility("group")}>👥 Public</button>
                     )}
                   </div>
                   {postVisibility==="group" && userGroups.filter(m=>m.status==="approved").length > 1 && (
