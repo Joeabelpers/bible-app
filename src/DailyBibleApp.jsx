@@ -1802,7 +1802,7 @@ export default function App() {
               </div>
             </div>
           )}
-          </div>{/* end wide-body */}
+          </div>
         )}
       </>) : (
         <div className="no-readings">No reading scheduled for this date.</div>
