@@ -582,8 +582,8 @@ const styles = `
     -webkit-overflow-scrolling: touch;
   }
   .passage-container { padding: 0 0 120px; position:relative; }
-  .floating-title { position:sticky; top:0; z-index:20; text-align:center; padding:8px 16px 24px; pointer-events:none; background:linear-gradient(to bottom, var(--accent) 0%, var(--accent) 30%, transparent 100%); }
-  .dark .floating-title { background:linear-gradient(to bottom, var(--gold) 0%, var(--gold) 30%, transparent 100%); }
+  .floating-title { position:sticky; top:0; z-index:20; text-align:center; padding:8px 16px 10px; pointer-events:none; background:var(--accent); }
+  .dark .floating-title { background:var(--gold); }
   .floating-title-book { font-family:'Lato',sans-serif; font-size:18px; font-weight:900; color:var(--ink); text-transform:uppercase; letter-spacing:1.5px; }
   .floating-title-chapter { font-family:'Lato',sans-serif; font-size:18px; font-weight:900; color:var(--ink); letter-spacing:1.5px; margin-left:8px; }
   .dark .floating-title-book { color:var(--parchment); }
@@ -1562,7 +1562,7 @@ export default function App() {
           </button>
         </div>
         <div className="header-center">
-          <button className="header-nav-btn" onClick={() => goDay(-1)}>‹</button>
+          <button className="header-nav-btn" style={{color: darkMode ? "var(--parchment)" : "var(--ink)"}} onClick={() => goDay(-1)}>‹</button>
           <div style={{textAlign:"center"}}>
             <div className="header-date-display"
               style={{color: darkMode ? "var(--parchment)" : "var(--ink)"}}>
@@ -1570,7 +1570,7 @@ export default function App() {
             </div>
             {!isToday && <button className="today-chip" onClick={goToday}>Today</button>}
           </div>
-          <button className="header-nav-btn" onClick={() => goDay(1)}>›</button>
+          <button className="header-nav-btn" style={{color: darkMode ? "var(--parchment)" : "var(--ink)"}} onClick={() => goDay(1)}>›</button>
         </div>
         <div className="header-right">
           <button className="header-icon-btn" onClick={() => setShowSettings(true)}
@@ -1590,7 +1590,7 @@ export default function App() {
           {readings.map((r, i) => (
             <button key={i} className={`tab${activeTab===i?" active":""}`} onClick={() => { setActiveTab(i); setPanelOpen(false); }}>
               <span className="tab-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={darkMode && activeTab===i ? "var(--parchment)" : "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
               </span>
               <span className="tab-label">READING {String(i+1).padStart(2,"0")}</span>
             </button>
@@ -1598,21 +1598,21 @@ export default function App() {
           <button className={`tab${activeTab===readings.length?" active":""}`}
             onClick={() => { setActiveTab(readings.length); setPanelAnchor(null); setPanelOpen(true); }}>
             <span className="tab-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={darkMode && activeTab===readings.length ? "var(--parchment)" : "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             </span>
             <span className="tab-label">NOTES</span>
           </button>
           <button className={`tab${activeTab===readings.length+1?" active":""}`}
             onClick={() => { setActiveTab(readings.length+1); setPanelOpen(false); }}>
             <span className="tab-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={darkMode && activeTab===readings.length+1 ? "var(--parchment)" : "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             </span>
             <span className="tab-label">SEARCH</span>
           </button>
           <button className={`tab${activeTab===readings.length+2?" active":""}`}
             onClick={() => { setActiveTab(readings.length+2); setPanelOpen(false); setProfileView("main"); }}>
             <span className="tab-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={darkMode && activeTab===readings.length+2 ? "var(--parchment)" : "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             </span>
             <span className="tab-label">PROFILE</span>
           </button>
@@ -1628,9 +1628,9 @@ export default function App() {
                 const displayBook = bookName.toUpperCase();
                 const chapterToShow = visibleChapter ?? (passageVerses[0]?.chapter ?? "");
                 return (
-                  <div className="floating-title">
-                    <span className="floating-title-book">{displayBook}</span>
-                    <span className="floating-title-chapter">{chapterToShow}</span>
+                  <div className="floating-title" style={{background: darkMode ? "var(--gold)" : "var(--accent)"}}>
+                    <span className="floating-title-book" style={{color: darkMode ? "var(--parchment)" : "var(--ink)"}}>{displayBook}</span>
+                    <span className="floating-title-chapter" style={{color: darkMode ? "var(--parchment)" : "var(--ink)"}}>{chapterToShow}</span>
                   </div>
                 );
               })()}
