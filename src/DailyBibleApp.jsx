@@ -486,13 +486,13 @@ const styles = `
   .dark .comment-card { background: #16213e; }
   .dark .passage-text { color: var(--ink); }
   .dark .auth-overlay { background: rgba(0,0,0,0.85); }
-  .dark .header { background: var(--gold); color: var(--parchment); }
-  .dark .header button { color: var(--parchment); }
+  .dark .header { background: var(--gold); color: var(--ink); }
+  .dark .header button { color: var(--ink); }
   .dark .tabs { background: none; }
   .dark .tab { color: var(--gold); background: var(--parchment); }
-  .dark .tab.active { color: var(--parchment); background: var(--gold); }
-  .dark .header-nav-btn { color: var(--parchment); }
-  .dark .header-date-display { color: var(--parchment); }
+  .dark .tab.active { color: var(--ink); background: var(--gold); }
+  .dark .header-nav-btn { color: var(--ink); }
+  .dark .header-date-display { color: var(--ink); }
 
   .app {
     font-family: 'Lato', sans-serif;
@@ -586,8 +586,8 @@ const styles = `
   .dark .floating-title { background:var(--gold); }
   .floating-title-book { font-family:'Lato',sans-serif; font-size:18px; font-weight:900; color:var(--ink); text-transform:uppercase; letter-spacing:1.5px; }
   .floating-title-chapter { font-family:'Lato',sans-serif; font-size:18px; font-weight:900; color:var(--ink); letter-spacing:1.5px; margin-left:8px; }
-  .dark .floating-title-book { color:var(--parchment); }
-  .dark .floating-title-chapter { color:var(--parchment); }
+  .dark .floating-title-book { color:var(--ink); }
+  .dark .floating-title-chapter { color:var(--ink); }
   .passage-text { font-family:'Lato',sans-serif; font-size:var(--reading-size,18px); line-height:1.9; color:var(--ink); padding:4px 18px; }
   .verse { margin-bottom:5px; position:relative; cursor:default; border-radius:4px; padding:2px 4px; transition:background 0.15s; }
   .verse:hover { background: rgba(41,115,115,0.06); }
@@ -1557,7 +1557,7 @@ export default function App() {
         <div className="header-left">
           <button className="version-btn active" onClick={() => setShowVersionPicker(true)}
             style={{fontSize:"15px", fontWeight:"700", background:"none", border:"none", 
-            color: darkMode ? "var(--parchment)" : "var(--ink)", cursor:"pointer", padding:"4px 6px"}}>
+            color: darkMode ? "var(--ink)" : "var(--ink)", cursor:"pointer", padding:"4px 6px"}}>
             {bibleVersion}
           </button>
         </div>
@@ -1588,7 +1588,7 @@ export default function App() {
           {readings.map((r, i) => (
             <button key={i} className={`tab${activeTab===i?" active":""}`} onClick={() => { setActiveTab(i); setPanelOpen(false); }}>
               <span className="tab-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={darkMode && activeTab===i ? "var(--parchment)" : "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={darkMode && activeTab===i ? "var(--ink)" : "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
               </span>
               <span className="tab-label">READING {String(i+1).padStart(2,"0")}</span>
             </button>
@@ -1596,21 +1596,21 @@ export default function App() {
           <button className={`tab${activeTab===readings.length?" active":""}`}
             onClick={() => { setActiveTab(readings.length); setPanelAnchor(null); setPanelOpen(true); }}>
             <span className="tab-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={darkMode && activeTab===readings.length ? "var(--parchment)" : "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={darkMode && activeTab===readings.length ? "var(--ink)" : "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             </span>
             <span className="tab-label">NOTES</span>
           </button>
           <button className={`tab${activeTab===readings.length+1?" active":""}`}
             onClick={() => { setActiveTab(readings.length+1); setPanelOpen(false); }}>
             <span className="tab-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={darkMode && activeTab===readings.length+1 ? "var(--parchment)" : "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={darkMode && activeTab===readings.length+1 ? "var(--ink)" : "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             </span>
             <span className="tab-label">SEARCH</span>
           </button>
           <button className={`tab${activeTab===readings.length+2?" active":""}`}
             onClick={() => { setActiveTab(readings.length+2); setPanelOpen(false); setProfileView("main"); }}>
             <span className="tab-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={darkMode && activeTab===readings.length+2 ? "var(--parchment)" : "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={darkMode && activeTab===readings.length+2 ? "var(--ink)" : "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             </span>
             <span className="tab-label">PROFILE</span>
           </button>
@@ -1627,8 +1627,8 @@ export default function App() {
                 const chapterToShow = visibleChapter ?? (passageVerses[0]?.chapter ?? "");
                 return (
                   <div className="floating-title" style={{background: darkMode ? "var(--gold)" : "var(--accent)"}}>
-                    <span className="floating-title-book" style={{color: darkMode ? "var(--parchment)" : "var(--ink)"}}>{displayBook}</span>
-                    <span className="floating-title-chapter" style={{color: darkMode ? "var(--parchment)" : "var(--ink)"}}>{chapterToShow}</span>
+                    <span className="floating-title-book" style={{color: darkMode ? "var(--ink)" : "var(--ink)"}}>{displayBook}</span>
+                    <span className="floating-title-chapter" style={{color: darkMode ? "var(--ink)" : "var(--ink)"}}>{chapterToShow}</span>
                   </div>
                 );
               })()}
