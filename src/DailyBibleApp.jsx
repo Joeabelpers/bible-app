@@ -776,21 +776,36 @@ const styles = `
     .wide-toggle-btn { padding:3px 10px; border-radius:12px; border:1px solid rgba(0,0,0,0.2); background:none; font-family:'Lato',sans-serif; font-size:11px; font-weight:700; color:var(--ink); cursor:pointer; transition:all 0.2s; opacity:0.75; pointer-events: all; }
     .wide-toggle-btn.active { background:rgba(0,0,0,0.15); opacity:1; border-color:transparent; }
 
-    /* Note cards — absolutely positioned to verse offset */
-    .wide-note-card { position: absolute; left: 10px; right: 10px; padding: 8px 10px; background: var(--parchment); border: 1px solid var(--border); border-radius: 8px; pointer-events: all; }
-    .dark .wide-note-card { background: var(--white); }
-    .wide-note-verse-ref { font-family:'Lato',sans-serif; font-size:10px; font-weight:700; color:var(--gold); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:3px; }
-    .wide-note-body { font-family:'EB Garamond',serif; font-size:14px; line-height:1.5; color:var(--ink); }
-    .wide-note-author { font-family:'Lato',sans-serif; font-size:10px; color:var(--ink-light); margin-top:4px; }
-    .wide-note-form { position: absolute; left: 10px; right: 10px; pointer-events: all; }
-    .wide-note-form textarea { width:100%; border:1px solid var(--border); border-radius:6px; padding:7px 9px; font-family:'EB Garamond',serif; font-size:14px; background:var(--white); color:var(--ink); resize:none; min-height:60px; outline:none; }
-    .wide-note-form textarea:focus { border-color:var(--gold); }
-    .wide-note-form-actions { display:flex; gap:6px; margin-top:5px; align-items:center; }
-    .wide-note-submit { background:var(--gold); color:var(--ink); border:none; border-radius:6px; padding:5px 14px; font-family:'Lato',sans-serif; font-size:11px; font-weight:700; cursor:pointer; transition:opacity 0.2s; }
-    .wide-note-submit:disabled { opacity:0.4; cursor:not-allowed; }
-    .wide-note-cancel { background:none; border:none; font-family:'Lato',sans-serif; font-size:11px; color:var(--ink-light); cursor:pointer; }
-    .wide-notes-empty { font-family:'EB Garamond',serif; font-style:italic; color:var(--ink-light); font-size:13px; padding:16px 14px; pointer-events:none; }
-    .wide-notes-signin { font-family:'EB Garamond',serif; font-style:italic; color:var(--ink-light); font-size:13px; padding:12px 14px; pointer-events: all; }
+    /* Note column — absolutely positioned alongside text, scrolls with parent */
+    .wide-notes-col { position: absolute; top: 0; right: 0; width: 320px; min-height: 100%; border-left: 2px solid var(--border); background: var(--white); pointer-events: none; }
+    .dark .wide-notes-col { background: var(--parchment-dark); }
+    .bottom-panel { display: none !important; }
+    .panel-backdrop { display: none !important; }
+
+    /* Unified header spanning both columns */
+    .wide-unified-header {
+      display: flex; align-items: center;
+      background: var(--accent);
+      padding: 8px 16px 10px;
+      flex-shrink: 0;
+    }
+    .dark .wide-unified-header { background: var(--gold); }
+    .wide-unified-header-left { flex: 1; display: flex; align-items: center; }
+    .wide-notes-label { font-family:'Lato',sans-serif; font-size:14px; font-weight:900; color:var(--ink); letter-spacing:1px; text-transform:uppercase; opacity:0.6; margin-left:16px; }
+
+    /* Individual verse note areas */
+    .verse-note-area { position: absolute; left: 8px; right: 8px; pointer-events: all; }
+    .verse-note-ta {
+      width: 100%; border: none; border-bottom: 1px solid var(--border);
+      background: transparent; color: var(--ink);
+      font-family: 'EB Garamond', serif; font-size: 14px; line-height: 1.6;
+      resize: none; outline: none; padding: 2px 4px; min-height: 24px;
+      overflow: hidden; transition: border-color 0.2s, background 0.15s;
+    }
+    .verse-note-ta:focus { border-color: var(--gold); background: rgba(41,115,115,0.04); }
+    .verse-note-ta::placeholder { color: var(--border); font-style: italic; font-size: 13px; }
+    .verse-note-saving { font-family:'Lato',sans-serif; font-size:9px; color:var(--ink-light); text-align:right; opacity:0.6; }
+    .wide-notes-signin { position: absolute; top: 12px; left: 12px; right: 12px; font-family:'EB Garamond',serif; font-style:italic; color:var(--ink-light); font-size:13px; pointer-events:all; }
     .wide-notes-signin button { background:none; border:none; color:var(--gold); cursor:pointer; text-decoration:underline; font-size:13px; font-family:'EB Garamond',serif; font-style:italic; }
   }
 
@@ -1078,6 +1093,10 @@ export default function App() {
   const [panelHeight, setPanelHeight]   = useState(45); // % of vh
   const [panelAnchor, setPanelAnchor]   = useState(null); // { verseKey, text } | null
 
+  // Verse notes (private, one per verse)
+  const [verseNotes, setVerseNotes]     = useState({}); // verse_ref → note_text
+  const [savingNote, setSavingNote]     = useState(null); // verse_ref currently saving
+
   // Comments
   const [comments, setComments]         = useState([]);
   const [commentText, setCommentText]   = useState("");
@@ -1259,23 +1278,51 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [commentView, selectedGroupId, dateKey, user?.id]);
 
+  // ── Load verse notes for current reading ─────────────────────────────────
+  useEffect(() => {
+    if (!user || !isWide || activeTab >= readings.length) { setVerseNotes({}); return; }
+    const parsed = parsePassageRef(readings[activeTab]);
+    const bookName = parsed.books[0].book;
+    // Build all verse_refs for this reading
+    const refs = passageVerses.map(v => `${bookName}-${v.chapter}-${v.verse}`);
+    if (refs.length === 0) return;
+    supabase.from("verse_notes")
+      .select("verse_ref, note_text")
+      .eq("user_id", user.id)
+      .in("verse_ref", refs)
+      .then(({ data }) => {
+        const map = {};
+        (data || []).forEach(n => { map[n.verse_ref] = n.note_text; });
+        setVerseNotes(map);
+      });
+  }, [user?.id, activeTab, dateKey, passageVerses.length, isWide]);
+
+  async function saveVerseNote(verseRef, text) {
+    if (!user) return;
+    setSavingNote(verseRef);
+    if (text.trim() === "") {
+      await supabase.from("verse_notes").delete().eq("user_id", user.id).eq("verse_ref", verseRef);
+    } else {
+      await supabase.from("verse_notes").upsert(
+        { user_id: user.id, verse_ref: verseRef, note_text: text, updated_at: new Date().toISOString() },
+        { onConflict: "user_id,verse_ref" }
+      );
+    }
+    setSavingNote(null);
+  }
+
+
+
   // ── Measure verse offsets for parallel notes column ──────────────────────
   useEffect(() => {
     if (!isWide || passageVerses.length === 0) return;
-    const measure = () => {
-      const container = wideBodyRef.current;
-      if (!container) return;
-      const containerTop = container.getBoundingClientRect().top + container.scrollTop;
+    const t = setTimeout(() => {
       const offsets = {};
       Object.entries(verseEls.current).forEach(([key, el]) => {
-        if (el) {
-          const elTop = el.getBoundingClientRect().top + container.scrollTop;
-          offsets[key] = elTop - containerTop;
-        }
+        if (el) offsets[key] = el.offsetTop;
       });
       setVerseOffsets(offsets);
-    };
-    const t = setTimeout(measure, 120);
+    }, 150);
     return () => clearTimeout(t);
   }, [passageVerses, isWide, activeTab, fontSize]);
 
@@ -1572,9 +1619,8 @@ export default function App() {
 
   // ── Panel drag ────────────────────────────────────────────────────────────
   const dragRef = useRef(null);
-  const wideBodyRef = useRef(null);
   const verseEls = useRef({}); // verseKey → DOM element
-  const [verseOffsets, setVerseOffsets] = useState({}); // verseKey → offsetTop relative to wide-body
+  const [verseOffsets, setVerseOffsets] = useState({}); // verseKey → offsetTop
   function onDragStart(e) {
     const startY = e.type === "touchstart" ? e.touches[0].clientY : e.clientY;
     const startH = panelHeight;
@@ -1727,22 +1773,12 @@ export default function App() {
                 ) : (
                   <span className="floating-title-chapter" style={{color:"var(--ink)", marginLeft:"4px"}}>{chapterToShow}</span>
                 )}
-                <span className="wide-notes-label" style={{marginLeft:"16px"}}>Notes</span>
-              </div>
-              <div className="wide-unified-header-right">
-                {user && (<>
-                  <button className={`wide-toggle-btn${commentView==="personal"?" active":""}`}
-                    onClick={() => setCommentView("personal")}>🔒 Private</button>
-                  {userGroups.filter(m=>m.status==="approved").length > 0 && (
-                    <button className={`wide-toggle-btn${commentView==="group"?" active":""}`}
-                      onClick={() => setCommentView("group")}>👥 Public</button>
-                  )}
-                </>)}
+                <span className="wide-notes-label">Notes</span>
               </div>
             </div>
           )}
 
-          <div className={isWide ? "wide-body" : ""} ref={isWide ? wideBodyRef : null}>
+          <div className={isWide ? "wide-body" : ""}>
           <div className={isWide ? "wide-text-col" : "passage-scroll"} style={{ paddingBottom: !isWide && panelOpen ? `${panelHeight + 5}vh` : "0" }}>
             <div className="passage-container" style={{"--reading-size": fontSize+"px"}}>
               {(() => {
@@ -1824,60 +1860,35 @@ export default function App() {
 
           {/* PARALLEL NOTES COLUMN — wide screens only */}
           {isWide && (() => {
-            const anchoredNotes = comments.filter(c => c.verse_ref);
+            const parsed2 = parsePassageRef(readings[activeTab]);
+            const bookName2 = parsed2.books[0].book;
             return (
-              <div className="wide-notes-col">
-                {!user && (
-                  <div className="wide-notes-signin" style={{position:"absolute", top:8, left:0, right:0}}>
-                    <button onClick={() => setShowAuth(true)}>Sign in</button> to add verse notes.
+            <div className="wide-notes-col">
+              {!user && (
+                <div className="wide-notes-signin">
+                  <button onClick={() => setShowAuth(true)}>Sign in</button> to add notes.
+                </div>
+              )}
+              {user && passageVerses.map(v => {
+                const vKey = `${bookName2}-${v.chapter}-${v.verse}`;
+                const top = verseOffsets[vKey];
+                if (top === undefined) return null;
+                const noteText = verseNotes[vKey] || "";
+                return (
+                  <div key={vKey} className="verse-note-area" style={{top}}>
+                    <textarea
+                      className="verse-note-ta"
+                      placeholder={`v${v.verse}…`}
+                      value={noteText}
+                      rows={noteText ? Math.max(1, noteText.split("\n").length) : 1}
+                      onChange={e => setVerseNotes(prev => ({...prev, [vKey]: e.target.value}))}
+                      onBlur={e => saveVerseNote(vKey, e.target.value)}
+                    />
+                    {savingNote === vKey && <div className="verse-note-saving">saving…</div>}
                   </div>
-                )}
-                {user && anchoredNotes.length === 0 && !panelAnchor && (
-                  <div className="wide-notes-empty" style={{position:"absolute", top:8, left:0, right:0}}>
-                    Tap a verse number to add a note.
-                  </div>
-                )}
-                {anchoredNotes.map(c => {
-                  const top = verseOffsets[c.verse_ref] ?? null;
-                  if (top === null) return null;
-                  return (
-                    <div key={c.id} className="wide-note-card" style={{top}}>
-                      <div className="wide-note-verse-ref">{c.anchor_text || c.verse_ref}</div>
-                      <div className="wide-note-body">{c.text}</div>
-                      <div className="wide-note-author">{c.username} · {new Date(c.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</div>
-                    </div>
-                  );
-                })}
-                {user && panelAnchor && (() => {
-                  const top = verseOffsets[panelAnchor.verseKey] ?? null;
-                  if (top === null) return null;
-                  return (
-                    <div className="wide-note-form" style={{top}}>
-                      <div className="wide-note-verse-ref">Note on {panelAnchor.text}</div>
-                      <textarea
-                        placeholder="Add a note on this verse…"
-                        value={commentText}
-                        onChange={e => setCommentText(e.target.value)}
-                        autoFocus
-                      />
-                      <div className="wide-note-form-actions">
-                        <button className="wide-note-submit" disabled={!commentText.trim()||submitting} onClick={handlePostComment}>
-                          {submitting ? "Saving…" : "Save"}
-                        </button>
-                        <button className="wide-note-cancel" onClick={() => { setPanelAnchor(null); setCommentText(""); }}>Cancel</button>
-                        {userGroups.filter(m=>m.status==="approved").length > 0 && (
-                          <div style={{marginLeft:"auto",display:"flex",gap:"4px"}}>
-                            <button className={`wide-toggle-btn${postVisibility==="personal"?" active":""}`}
-                              onClick={() => setPostVisibility("personal")}>🔒</button>
-                            <button className={`wide-toggle-btn${postVisibility==="group"?" active":""}`}
-                              onClick={() => setPostVisibility("group")}>👥</button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
+                );
+              })}
+            </div>
             );
           })()}
           </div>
