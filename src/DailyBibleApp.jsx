@@ -511,7 +511,7 @@ const styles = `
     background: var(--accent);
     color: var(--parchment);
     padding: 0 12px;
-    height: 52px;
+    height: 46px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -526,11 +526,11 @@ const styles = `
   .header-title { font-family:'Lato',sans-serif; font-size:20px; font-weight:900; letter-spacing:0.3px; line-height:1.1; text-transform:uppercase; }
   .header-date { display:none; }
   .header-center { display:flex; align-items:center; gap:4px; }
-  .header-nav-btn { background:none; border:none; color:var(--ink); font-size:20px; cursor:pointer; padding:4px 6px; line-height:1; transition:color 0.15s; }
+  .header-nav-btn { background:none; border:none; color:var(--ink); font-size:26px; cursor:pointer; padding:2px 6px; line-height:1; transition:color 0.15s; }
   .header-nav-btn:hover { color:var(--gold); }
-  .header-date-display { font-family:'Lato',sans-serif; font-size:16px; font-weight:700; color:var(--ink); min-width:70px; text-align:center; white-space:nowrap; }
+  .header-date-display { font-family:'Lato',sans-serif; font-size:21px; font-weight:700; color:var(--ink); min-width:70px; text-align:center; white-space:nowrap; }
   .header-right { display:flex; align-items:center; gap:5px; min-width:60px; justify-content:flex-end; }
-  .header-icon-btn { background:none; border:none; color:var(--ink); cursor:pointer; padding:4px; font-size:15px; line-height:1; border-radius:4px; transition:all 0.15s; }
+  .header-icon-btn { background:none; border:none; color:var(--ink); cursor:pointer; padding:4px; font-size:20px; line-height:1; border-radius:4px; transition:all 0.15s; }
   .header-icon-btn:hover { color:var(--gold); }
   .font-size-btn { background:none; border:1px solid var(--gold); border-radius:5px; padding:3px 7px; font-size:12px; font-weight:700; cursor:pointer; color:var(--gold-light); font-family:'Lato',sans-serif; line-height:1; transition:all 0.15s; }
   .font-size-btn:hover { background:var(--gold); color:var(--ink); }
@@ -540,7 +540,7 @@ const styles = `
   .today-chip { font-size:10px; font-family:'Lato',sans-serif; background:var(--gold); color:var(--white); border:none; border-radius:10px; padding:2px 7px; cursor:pointer; font-weight:700; }
 
   /* SPACER — pushes content below fixed header */
-  .header-spacer { height: 52px; flex-shrink:0; }
+  .header-spacer { height: 46px; flex-shrink:0; }
 /* BOTTOM TAB BAR — fixed at bottom */
   .tabs {
     display: flex;
@@ -578,11 +578,11 @@ const styles = `
   /* PASSAGE SCROLL AREA */
   .passage-scroll {
     overflow-y: auto;
-    height: calc(100vh - 52px - 56px - env(safe-area-inset-bottom, 0px));
+    height: calc(100vh - 46px - 56px - env(safe-area-inset-bottom, 0px));
     -webkit-overflow-scrolling: touch;
   }
   .passage-container { padding: 0 0 120px; position:relative; }
-  .floating-title { position:sticky; top:0; z-index:20; text-align:center; padding:8px 16px 10px; pointer-events:none; background:var(--accent); }
+  .floating-title { position:sticky; top:0; z-index:20; text-align:center; padding:4px 16px 6px; pointer-events:none; background:var(--accent); }
   .dark .floating-title { background:var(--gold); }
   .floating-title-book { font-family:'Lato',sans-serif; font-size:18px; font-weight:900; color:var(--ink); text-transform:uppercase; letter-spacing:1.5px; }
   .floating-title-chapter { font-family:'Lato',sans-serif; font-size:18px; font-weight:900; color:var(--ink); letter-spacing:1.5px; margin-left:8px; }
@@ -749,7 +749,7 @@ const styles = `
     .app { max-width: 100%; }
     .header { max-width: 100%; left: 0; transform: none; width: 100%; }
     .tabs { max-width: 100%; left: 0; transform: none; width: 100%; }
-    .wide-wrapper { display: flex; flex-direction: column; flex: 1; height: calc(100vh - 52px - calc(56px + env(safe-area-inset-bottom, 0px))); overflow: hidden; }
+    .wide-wrapper { display: flex; flex-direction: column; flex: 1; height: calc(100vh - 46px - calc(56px + env(safe-area-inset-bottom, 0px))); overflow: hidden; }
     /* Single shared scroller */
     .wide-body { display: flex; flex-direction: row; flex: 1; overflow-y: auto; overflow-x: hidden; position: relative; -webkit-overflow-scrolling: touch; }
     /* Text col fills full width, passage-container handles its own right padding */
@@ -1694,8 +1694,8 @@ export default function App() {
       <div className="header">
         <div className="header-left">
           <button className="version-btn active" onClick={() => setShowVersionPicker(true)}
-            style={{fontSize:"15px", fontWeight:"700", background:"none", border:"none", 
-            color: darkMode ? "var(--ink)" : "var(--ink)", cursor:"pointer", padding:"4px 6px"}}>
+            style={{fontSize:"20px", fontWeight:"700", background:"none", border:"none", 
+            color: darkMode ? "var(--ink)" : "var(--ink)", cursor:"pointer", padding:"2px 6px"}}>
             {bibleVersion}
           </button>
         </div>
