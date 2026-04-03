@@ -1257,7 +1257,7 @@ export default function App() {
   useEffect(() => {
     fetchComments();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [commentView, selectedGroupId, dateKey, user, panelAnchor, isWide]);
+  }, [commentView, selectedGroupId, dateKey, user?.id]);
 
   // ── Measure verse offsets for parallel notes column ──────────────────────
   useEffect(() => {
