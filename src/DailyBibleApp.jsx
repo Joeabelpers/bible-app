@@ -866,7 +866,7 @@ const styles = `
   .member-role { font-size:10px; color:var(--ink-light); font-family:'Lato',sans-serif; }
 
   /* BIBLE BROWSER */
-  .bible-browser { display:flex; flex-direction:column; }
+  .bible-browser { display:flex; flex-direction:column; flex:1; overflow:hidden; }
   .bible-nav {
     display:flex; align-items:center; gap:6px;
     padding:8px 12px; background:var(--white);
@@ -1746,14 +1746,42 @@ export default function App() {
           </button>
         </div>
         <div className="header-center">
-          <button className="header-nav-btn" onClick={() => goDay(-1)}>‹</button>
-          <div style={{textAlign:"center"}}>
-            <div className="header-date-display">
-              {currentDate.toLocaleDateString("en-US",{month:"short",day:"numeric"})}
+          {activeTab === readings.length + 1 ? (
+            /* Bible tab — show book + chapter in header */
+            <div style={{display:"flex", alignItems:"center", gap:"4px", flex:1, justifyContent:"center"}}>
+              <select
+                value={browserBook}
+                onChange={e => { setBrowserBook(e.target.value); setBrowserChapter(1); setSearchQuery(""); setGlobalSearch(false); setGlobalResults([]); }}
+                style={{background:"var(--accent)", border:"none", color:"var(--ink)", fontFamily:"'Lato',sans-serif",
+                  fontSize:"17px", fontWeight:"700", cursor:"pointer", outline:"none", maxWidth:"150px",
+                  WebkitAppearance:"none", appearance:"none", textAlign:"center"}}>
+                {BIBLE_BOOKS.map(b => <option key={b} value={b} style={{background:"var(--parchment)",color:"var(--ink)"}}>{b}</option>)}
+              </select>
+              <span style={{color:"var(--ink)", fontFamily:"'Lato',sans-serif", fontSize:"17px", fontWeight:"700", opacity:0.6}}>·</span>
+              <select
+                value={browserChapter}
+                onChange={e => setBrowserChapter(parseInt(e.target.value))}
+                style={{background:"var(--accent)", border:"none", color:"var(--ink)", fontFamily:"'Lato',sans-serif",
+                  fontSize:"17px", fontWeight:"700", cursor:"pointer", outline:"none", width:"48px",
+                  WebkitAppearance:"none", appearance:"none", textAlign:"center"}}>
+                {Array.from({length: CHAPTER_COUNTS[browserBook] || 1}, (_,i) =>
+                  <option key={i+1} value={i+1} style={{background:"var(--parchment)",color:"var(--ink)"}}>{i+1}</option>
+                )}
+              </select>
             </div>
-            {!isToday && <button className="today-chip" onClick={goToday}>Today</button>}
-          </div>
-          <button className="header-nav-btn" onClick={() => goDay(1)}>›</button>
+          ) : (
+            /* All other tabs — show date nav */
+            <>
+              <button className="header-nav-btn" onClick={() => goDay(-1)}>‹</button>
+              <div style={{textAlign:"center"}}>
+                <div className="header-date-display">
+                  {currentDate.toLocaleDateString("en-US",{month:"short",day:"numeric"})}
+                </div>
+                {!isToday && <button className="today-chip" onClick={goToday}>Today</button>}
+              </div>
+              <button className="header-nav-btn" onClick={() => goDay(1)}>›</button>
+            </>
+          )}
         </div>
         <div className="header-right">
           <button className="header-icon-btn" onClick={() => setShowSettings(true)}
@@ -2103,23 +2131,8 @@ export default function App() {
       {/* BIBLE BROWSER TAB */}
       {activeTab === readings.length + 1 && (
         <div className="bible-browser">
-          {/* Book selector + search bar */}
-          <div className="bible-nav">
-            <select className="bible-select" value={browserBook}
-              onChange={e => { setBrowserBook(e.target.value); setBrowserChapter(1); setSearchQuery(""); setGlobalSearch(false); setGlobalResults([]); }}>
-              {BIBLE_BOOKS.map(b => <option key={b} value={b}>{b}</option>)}
-            </select>
-            <select className="bible-ch-select" value={browserChapter}
-              onChange={e => { setBrowserChapter(parseInt(e.target.value)); }}
-              title="Jump to chapter">
-              {Array.from({length: CHAPTER_COUNTS[browserBook] || 1}, (_,i) =>
-                <option key={i+1} value={i+1}>Ch {i+1}</option>
-              )}
-            </select>
-          </div>
-
-          {/* Search bar */}
-          <div className="bible-search-bar">
+          {/* Search bar — fixed at top of bible browser, doesn't scroll */}
+          <div className="bible-search-bar" style={{flexShrink:0}}>
             <input className="bible-search-input"
               placeholder={globalSearch ? "Search entire Bible…" : "Search this chapter…"}
               value={searchQuery}
