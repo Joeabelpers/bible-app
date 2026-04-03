@@ -1767,18 +1767,36 @@ export default function App() {
           </button>
         </div>
         <div className="header-center">
-          {activeTab === readings.length + 1 ? (
-            /* Bible tab — show book + chapter in header */
+          {activeTab < readings.length && readings[activeTab] ? (() => {
+            /* Portion tabs — show book + chapter indicators */
+            const parsed = parsePassageRef(readings[activeTab]);
+            const bookName = parsed.books[0].book.toUpperCase();
+            const allChapters = parsed.books[0].chapters;
+            const chapterToShow = visibleChapter ?? (passageVerses[0]?.chapter ?? "");
+            return (
+              <div style={{display:"flex", alignItems:"center", gap:"0", flex:1, justifyContent:"center"}}>
+                <span style={{color:"var(--ink)", fontFamily:"'Lato',sans-serif", fontSize:"15px", fontWeight:"900", letterSpacing:"1px", marginRight:"8px"}}>{bookName}</span>
+                {allChapters.length > 1 ? (
+                  allChapters.map(ch => (
+                    <span key={ch} style={{color:"var(--ink)", fontFamily:"'Lato',sans-serif", fontSize:"17px", fontWeight:"700", opacity: ch === chapterToShow ? 1 : 0.35, marginLeft:"6px"}}>{ch}</span>
+                  ))
+                ) : (
+                  <span style={{color:"var(--ink)", fontFamily:"'Lato',sans-serif", fontSize:"17px", fontWeight:"700", marginLeft:"4px"}}>{chapterToShow}</span>
+                )}
+              </div>
+            );
+          })() : activeTab === readings.length + 1 ? (
+            /* Bible tab — show book select + chapter indicators */
             <div style={{display:"flex", alignItems:"center", gap:"4px", flex:1, justifyContent:"center"}}>
               <select
                 value={browserBook}
                 onChange={e => { setBrowserBook(e.target.value); setBrowserChapter(1); setSearchQuery(""); setGlobalSearch(false); setGlobalResults([]); }}
                 style={{background:"transparent", border:"none", color:"var(--ink)", fontFamily:"'Lato',sans-serif",
-                  fontSize:"17px", fontWeight:"700", cursor:"pointer", outline:"none", maxWidth:"150px",
+                  fontSize:"15px", fontWeight:"900", letterSpacing:"1px", cursor:"pointer", outline:"none", maxWidth:"150px",
                   WebkitAppearance:"none", appearance:"none", textAlign:"center"}}>
                 {BIBLE_BOOKS.map(b => <option key={b} value={b} style={{background:"var(--parchment)",color:"#221E1E"}}>{b}</option>)}
               </select>
-              <span style={{color:"var(--ink)", opacity:0.5, margin:"0 2px"}}>·</span>
+              <span style={{color:"var(--ink)", opacity:0.4, margin:"0 2px"}}>·</span>
               {(() => {
                 const max = CHAPTER_COUNTS[browserBook] || 1;
                 const prev = browserVisibleChapter - 1;
@@ -1791,7 +1809,7 @@ export default function App() {
               })()}
             </div>
           ) : (
-            /* All other tabs — show date nav */
+            /* Notes / Profile / other tabs — show date nav */
             <>
               <button className="header-nav-btn" onClick={() => goDay(-1)}>‹</button>
               <div style={{textAlign:"center"}}>
@@ -1853,52 +1871,12 @@ export default function App() {
         {activeTab < readings.length && (() => {
           const parsed = parsePassageRef(readings[activeTab]);
           const bookName = parsed.books[0].book;
-          const displayBook = bookName.toUpperCase();
-          const allChapters = parsed.books[0].chapters;
-          const chapterToShow = visibleChapter ?? (passageVerses[0]?.chapter ?? "");
           return (
           <div className={isWide ? "wide-wrapper" : ""}>
-
-          {/* UNIFIED HEADER — wide screens only, spans both columns */}
-          {isWide && (
-            <div className="wide-unified-header">
-              <div className="wide-unified-header-left">
-                <span className="floating-title-book" style={{color:"var(--ink)"}}>{displayBook}</span>
-                {allChapters.length > 1 ? (
-                  allChapters.map(ch => (
-                    <span key={ch} className="floating-title-chapter" style={{
-                      color:"var(--ink)", opacity: ch === chapterToShow ? 1 : 0.35, marginLeft:"8px"
-                    }}>{ch}</span>
-                  ))
-                ) : (
-                  <span className="floating-title-chapter" style={{color:"var(--ink)", marginLeft:"4px"}}>{chapterToShow}</span>
-                )}
-                <span className="wide-notes-label">Notes</span>
-              </div>
-            </div>
-          )}
 
           <div className={isWide ? "wide-body" : ""}>
           <div className={isWide ? "wide-text-col" : "passage-scroll"} style={{ paddingBottom: !isWide && panelOpen ? `${panelHeight + 5}vh` : "0" }}>
             <div className="passage-container" style={{"--reading-size": fontSize+"px"}}>
-              {(() => {
-                return isWide ? null : (
-                  <div className="floating-title" style={{background: darkMode ? "var(--gold)" : "var(--accent)"}}>
-                    <span className="floating-title-book" style={{color:"var(--ink)"}}>{displayBook}</span>
-                    {allChapters.length > 1 ? (
-                      allChapters.map(ch => (
-                        <span key={ch} className="floating-title-chapter" style={{
-                          color:"var(--ink)",
-                          opacity: ch === chapterToShow ? 1 : 0.35,
-                          marginLeft:"8px"
-                        }}>{ch}</span>
-                      ))
-                    ) : (
-                      <span className="floating-title-chapter" style={{color:"var(--ink)"}}>{chapterToShow}</span>
-                    )}
-                  </div>
-                );
-              })()}
               {passageLoading ? (
                 <div className="loading-text" style={{padding:"40px 18px"}}>Loading passage…</div>
               ) : passageVerses.length > 0 ? (
@@ -2189,40 +2167,7 @@ export default function App() {
             </div>
           ) : (
             /* Continuous scroll chapter view */
-            <div style={{display:"flex", flexDirection:"column", flex:1, overflow:"hidden"}}>
-              {/* Combined chapter indicator + search — flex child, always visible */}
-              <div style={{
-                display:"flex", alignItems:"center", gap:"8px", flexShrink:0,
-                background: darkMode ? "var(--gold)" : "var(--accent)",
-                padding:"6px 12px"
-              }}>
-                {(() => {
-                  const max = CHAPTER_COUNTS[browserBook] || 1;
-                  const prev = browserVisibleChapter - 1;
-                  const next = browserVisibleChapter + 1;
-                  return (
-                    <div style={{display:"flex", alignItems:"center", gap:"10px", flexShrink:0}}>
-                      {prev >= 1 && <span className="floating-title-chapter" style={{color:"var(--ink)", opacity:0.35}}>{prev}</span>}
-                      <span className="floating-title-chapter" style={{color:"var(--ink)"}}>{browserVisibleChapter}</span>
-                      {next <= max && <span className="floating-title-chapter" style={{color:"var(--ink)", opacity:0.35}}>{next}</span>}
-                    </div>
-                  );
-                })()}
-                <div style={{width:"1px", height:"20px", background:"rgba(0,0,0,0.2)", flexShrink:0}} />
-                <input className="bible-search-input" style={{flex:1, fontSize:"13px", padding:"4px 8px"}}
-                  placeholder="Search…"
-                  value={searchQuery}
-                  onChange={e => { setSearchQuery(e.target.value); if (!e.target.value.trim()) { setSearchMatches(new Set()); setGlobalResults([]); } }}
-                  onKeyDown={e => e.key === "Enter" && handleBrowserSearch()} />
-                <button className="bible-search-btn" style={{padding:"4px 10px", fontSize:"12px"}} onClick={handleBrowserSearch}>Go</button>
-                <label style={{display:"flex", alignItems:"center", gap:"4px", fontSize:"11px", color:"var(--ink)", fontFamily:"'Lato',sans-serif", cursor:"pointer", whiteSpace:"nowrap"}}>
-                  <input type="checkbox" checked={globalSearch}
-                    onChange={e => { setGlobalSearch(e.target.checked); setSearchMatches(new Set()); setGlobalResults([]); }} />
-                  All
-                </label>
-              </div>
-              <div className={isWide ? "wide-wrapper" : ""} style={isWide ? {flex:1,overflow:"hidden",display:"flex",flexDirection:"column"} : {flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
-
+            <div className={isWide ? "wide-wrapper" : ""} style={{display:"flex", flexDirection:"column", flex:1, overflow:"hidden"}}>
               <div className={isWide ? "wide-body" : ""}>
               <div className={isWide ? "wide-text-col" : "passage-scroll"}
                 ref={browserScrollRef}
@@ -2320,7 +2265,6 @@ export default function App() {
               </div>
               </div>
             </div>
-          </div>
           )}
         </div>
       )}
