@@ -567,8 +567,8 @@ const styles = `
     background: var(--accent);
     border-top-color: transparent;
   }
-  .tab-icon { display:block; font-size:18px; margin-bottom:1px; line-height:1; }
-  .tab-label { display:block; font-size:9px; font-weight:700; letter-spacing:0.3px; }
+  .tab-icon { display:block; font-size:18px; line-height:1; }
+  .tab-label { display:block; font-size:9px; font-weight:700; letter-spacing:0.3px; margin-bottom:2px; }
   /* BOTTOM TAB SPACER */
   .tabs-spacer { height: calc(56px + env(safe-area-inset-bottom, 0px)); flex-shrink:0; }
   /* DATE BAR — removed, merged into header */
@@ -1725,32 +1725,32 @@ export default function App() {
         <div className="tabs">
           {readings.map((r, i) => (
             <button key={i} className={`tab${activeTab===i?" active":""}`} onClick={() => { setActiveTab(i); setPanelOpen(false); }}>
+              <span className="tab-label">PORTION {i+1}</span>
               <span className="tab-icon">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={darkMode && activeTab===i ? "var(--ink)" : "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
               </span>
-              <span className="tab-label">READING {String(i+1).padStart(2,"0")}</span>
             </button>
           ))}
           <button className={`tab${activeTab===readings.length?" active":""}`}
             onClick={() => { setActiveTab(readings.length); setPanelAnchor(null); setPanelOpen(true); }}>
+            <span className="tab-label">NOTES</span>
             <span className="tab-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={darkMode && activeTab===readings.length ? "var(--ink)" : "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             </span>
-            <span className="tab-label">NOTES</span>
           </button>
           <button className={`tab${activeTab===readings.length+1?" active":""}`}
             onClick={() => { setActiveTab(readings.length+1); setPanelOpen(false); }}>
+            <span className="tab-label">BIBLE</span>
             <span className="tab-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={darkMode && activeTab===readings.length+1 ? "var(--ink)" : "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={darkMode && activeTab===readings.length+1 ? "var(--ink)" : "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
             </span>
-            <span className="tab-label">SEARCH</span>
           </button>
           <button className={`tab${activeTab===readings.length+2?" active":""}`}
             onClick={() => { setActiveTab(readings.length+2); setPanelOpen(false); setProfileView("main"); }}>
+            <span className="tab-label">PROFILE</span>
             <span className="tab-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={darkMode && activeTab===readings.length+2 ? "var(--ink)" : "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             </span>
-            <span className="tab-label">PROFILE</span>
           </button>
         </div>
 
