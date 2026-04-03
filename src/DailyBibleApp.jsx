@@ -756,8 +756,8 @@ const styles = `
     .wide-text-col { flex: 1; min-height: 100%; }
     .wide-text-col .passage-container { padding-right: 340px; }
     /* Notes col is inside passage-container, so offsetTop coords match exactly */
-    .wide-notes-col { position: absolute; top: 0; right: 0; width: 320px; bottom: 0; border-left: 2px solid var(--border); background: var(--white); pointer-events: none; }
-    .dark .wide-notes-col { background: var(--parchment-dark); }
+    .wide-notes-col { position: absolute; top: 0; right: 0; width: 320px; bottom: 0; border-left: 2px solid var(--border); background: var(--parchment); pointer-events: none; }
+    .dark .wide-notes-col { background: var(--parchment); }
     /* passage-scroll becomes unstyled on wide */
     .wide-body .passage-scroll { height: auto !important; overflow: visible !important; padding-bottom: 0 !important; flex: 1; }
     .bottom-panel { display: none !important; }
@@ -800,16 +800,17 @@ const styles = `
     .verse-note-ta {
       width: 100%; border: none; border-bottom: 1px solid var(--border);
       background: transparent; color: var(--ink);
-      font-family: 'EB Garamond', serif; font-size: 14px; line-height: 1.6;
+      font-family: 'Lato', sans-serif; font-size: 11px; font-weight: 400;
+      line-height: 1.5; letter-spacing: -0.1px;
       resize: none; outline: none; padding: 2px 4px;
-      height: 100%; min-height: 22px;
+      height: 100%; min-height: 20px;
       display: block;
       transition: border-color 0.2s, background 0.15s;
     }
-    .verse-note-ta:focus { border-color: var(--gold); background: rgba(41,115,115,0.04); }
-    .verse-note-ta::placeholder { color: var(--border); font-style: italic; font-size: 13px; }
+    .verse-note-ta:focus { border-color: var(--gold); background: rgba(41,115,115,0.05); }
+    .verse-note-ta::placeholder { color: var(--border); font-size: 11px; }
     .verse-note-saving { font-family:'Lato',sans-serif; font-size:9px; color:var(--ink-light); text-align:right; opacity:0.6; }
-    .wide-notes-signin { position: absolute; top: 12px; left: 12px; right: 12px; font-family:'EB Garamond',serif; font-style:italic; color:var(--ink-light); font-size:13px; pointer-events:all; }
+    .wide-notes-signin { position: absolute; top: 12px; left: 12px; right: 12px; font-family:'Lato',sans-serif; color:var(--ink-light); font-size:11px; pointer-events:all; }
     .wide-notes-signin button { background:none; border:none; color:var(--gold); cursor:pointer; text-decoration:underline; font-size:13px; font-family:'EB Garamond',serif; font-style:italic; }
   }
 
