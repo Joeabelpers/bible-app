@@ -895,7 +895,7 @@ const styles = `
   }
   .bible-search-bar {
     display:flex; align-items:center; gap:6px;
-    padding:6px 12px; background:var(--parchment-dark);
+    padding:6px 12px; background:var(--parchment);
     border-bottom:1px solid var(--border); flex-shrink:0;
   }
   .bible-search-input {
@@ -1752,20 +1752,20 @@ export default function App() {
               <select
                 value={browserBook}
                 onChange={e => { setBrowserBook(e.target.value); setBrowserChapter(1); setSearchQuery(""); setGlobalSearch(false); setGlobalResults([]); }}
-                style={{background:"var(--accent)", border:"none", color:"var(--ink)", fontFamily:"'Lato',sans-serif",
+                style={{background:"transparent", border:"none", color:"var(--ink)", fontFamily:"'Lato',sans-serif",
                   fontSize:"17px", fontWeight:"700", cursor:"pointer", outline:"none", maxWidth:"150px",
                   WebkitAppearance:"none", appearance:"none", textAlign:"center"}}>
-                {BIBLE_BOOKS.map(b => <option key={b} value={b} style={{background:"var(--parchment)",color:"var(--ink)"}}>{b}</option>)}
+                {BIBLE_BOOKS.map(b => <option key={b} value={b} style={{background:"var(--parchment)",color:"#221E1E"}}>{b}</option>)}
               </select>
               <span style={{color:"var(--ink)", fontFamily:"'Lato',sans-serif", fontSize:"17px", fontWeight:"700", opacity:0.6}}>·</span>
               <select
                 value={browserChapter}
                 onChange={e => setBrowserChapter(parseInt(e.target.value))}
-                style={{background:"var(--accent)", border:"none", color:"var(--ink)", fontFamily:"'Lato',sans-serif",
+                style={{background:"transparent", border:"none", color:"var(--ink)", fontFamily:"'Lato',sans-serif",
                   fontSize:"17px", fontWeight:"700", cursor:"pointer", outline:"none", width:"48px",
                   WebkitAppearance:"none", appearance:"none", textAlign:"center"}}>
                 {Array.from({length: CHAPTER_COUNTS[browserBook] || 1}, (_,i) =>
-                  <option key={i+1} value={i+1} style={{background:"var(--parchment)",color:"var(--ink)"}}>{i+1}</option>
+                  <option key={i+1} value={i+1} style={{background:"var(--parchment)",color:"#221E1E"}}>{i+1}</option>
                 )}
               </select>
             </div>
@@ -2187,17 +2187,16 @@ export default function App() {
           ) : (
             /* Continuous scroll chapter view */
             <div className={isWide ? "wide-wrapper" : ""} style={isWide ? {flex:1,overflow:"hidden",display:"flex",flexDirection:"column"} : {}}>
-              {/* Floating chapter header — prev / current / next */}
+              {/* Floating chapter indicator — prev / current / next */}
               <div className="floating-title" style={{background: darkMode ? "var(--gold)" : "var(--accent)"}}>
                 {(() => {
                   const max = CHAPTER_COUNTS[browserBook] || 1;
                   const prev = browserVisibleChapter - 1;
                   const next = browserVisibleChapter + 1;
                   return (<>
-                    {prev >= 1 && <span className="floating-title-chapter" style={{color:"var(--ink)", opacity:0.35, marginRight:"12px"}}>{prev}</span>}
-                    <span className="floating-title-book" style={{color:"var(--ink)"}}>{browserBook}</span>
-                    <span className="floating-title-chapter" style={{color:"var(--ink)", marginLeft:"6px"}}>{browserVisibleChapter}</span>
-                    {next <= max && <span className="floating-title-chapter" style={{color:"var(--ink)", opacity:0.35, marginLeft:"12px"}}>{next}</span>}
+                    {prev >= 1 && <span className="floating-title-chapter" style={{color:"var(--ink)", opacity:0.35, marginRight:"16px"}}>{prev}</span>}
+                    <span className="floating-title-chapter" style={{color:"var(--ink)", fontSize:"20px"}}>{browserVisibleChapter}</span>
+                    {next <= max && <span className="floating-title-chapter" style={{color:"var(--ink)", opacity:0.35, marginLeft:"16px"}}>{next}</span>}
                   </>);
                 })()}
               </div>
