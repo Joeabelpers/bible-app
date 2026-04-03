@@ -750,10 +750,15 @@ const styles = `
     .header { max-width: 100%; left: 0; transform: none; width: 100%; }
     .tabs { max-width: 100%; left: 0; transform: none; width: 100%; }
     .wide-wrapper { display: flex; flex-direction: column; flex: 1; height: calc(100vh - 52px - calc(56px + env(safe-area-inset-bottom, 0px))); overflow: hidden; }
-    .wide-body { display: flex; flex-direction: row; flex: 1; overflow: hidden; }
-    .wide-body .passage-scroll { height: 100%; flex: 1; padding-bottom: 0 !important; overflow-y: auto; }
-    .wide-notes-col { width: 320px; flex-shrink: 0; border-left: 2px solid var(--border); background: var(--white); overflow-y: auto; position: relative; }
+    /* Single shared scroller */
+    .wide-body { display: flex; flex-direction: row; flex: 1; overflow-y: auto; overflow-x: hidden; position: relative; -webkit-overflow-scrolling: touch; }
+    /* Left: bible text, natural height, right-padding makes room for notes col */
+    .wide-text-col { flex: 1; padding-right: 340px; min-height: 100%; }
+    /* Right: absolutely positioned alongside, matches scroll of parent */
+    .wide-notes-col { position: absolute; top: 0; right: 0; width: 320px; min-height: 100%; border-left: 2px solid var(--border); background: var(--white); pointer-events: none; }
     .dark .wide-notes-col { background: var(--parchment-dark); }
+    /* passage-scroll becomes unstyled on wide */
+    .wide-body .passage-scroll { height: auto !important; overflow: visible !important; padding-bottom: 0 !important; flex: 1; }
     .bottom-panel { display: none !important; }
     .panel-backdrop { display: none !important; }
 
@@ -763,30 +768,29 @@ const styles = `
       background: var(--accent);
       padding: 8px 16px 10px;
       flex-shrink: 0;
-      border-bottom: none;
     }
     .dark .wide-unified-header { background: var(--gold); }
     .wide-unified-header-left { flex: 1; display: flex; align-items: center; }
     .wide-unified-header-right { display: flex; align-items: center; gap: 6px; }
     .wide-notes-label { font-family:'Lato',sans-serif; font-size:14px; font-weight:900; color:var(--ink); letter-spacing:1px; text-transform:uppercase; opacity:0.7; margin-right: 8px; }
-    .wide-toggle-btn { padding:3px 10px; border-radius:12px; border:1px solid rgba(0,0,0,0.2); background:none; font-family:'Lato',sans-serif; font-size:11px; font-weight:700; color:var(--ink); cursor:pointer; transition:all 0.2s; opacity:0.75; }
+    .wide-toggle-btn { padding:3px 10px; border-radius:12px; border:1px solid rgba(0,0,0,0.2); background:none; font-family:'Lato',sans-serif; font-size:11px; font-weight:700; color:var(--ink); cursor:pointer; transition:all 0.2s; opacity:0.75; pointer-events: all; }
     .wide-toggle-btn.active { background:rgba(0,0,0,0.15); opacity:1; border-color:transparent; }
 
-    /* Note cards in the right column */
-    .wide-note-card { margin: 0 10px 8px; padding: 8px 10px; background: var(--parchment); border: 1px solid var(--border); border-radius: 8px; font-size: 13px; }
+    /* Note cards — absolutely positioned to verse offset */
+    .wide-note-card { position: absolute; left: 10px; right: 10px; padding: 8px 10px; background: var(--parchment); border: 1px solid var(--border); border-radius: 8px; pointer-events: all; }
     .dark .wide-note-card { background: var(--white); }
     .wide-note-verse-ref { font-family:'Lato',sans-serif; font-size:10px; font-weight:700; color:var(--gold); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:3px; }
     .wide-note-body { font-family:'EB Garamond',serif; font-size:14px; line-height:1.5; color:var(--ink); }
     .wide-note-author { font-family:'Lato',sans-serif; font-size:10px; color:var(--ink-light); margin-top:4px; }
-    .wide-note-form { margin: 0 10px 12px; }
+    .wide-note-form { position: absolute; left: 10px; right: 10px; pointer-events: all; }
     .wide-note-form textarea { width:100%; border:1px solid var(--border); border-radius:6px; padding:7px 9px; font-family:'EB Garamond',serif; font-size:14px; background:var(--white); color:var(--ink); resize:none; min-height:60px; outline:none; }
     .wide-note-form textarea:focus { border-color:var(--gold); }
     .wide-note-form-actions { display:flex; gap:6px; margin-top:5px; align-items:center; }
     .wide-note-submit { background:var(--gold); color:var(--ink); border:none; border-radius:6px; padding:5px 14px; font-family:'Lato',sans-serif; font-size:11px; font-weight:700; cursor:pointer; transition:opacity 0.2s; }
     .wide-note-submit:disabled { opacity:0.4; cursor:not-allowed; }
     .wide-note-cancel { background:none; border:none; font-family:'Lato',sans-serif; font-size:11px; color:var(--ink-light); cursor:pointer; }
-    .wide-notes-empty { font-family:'EB Garamond',serif; font-style:italic; color:var(--ink-light); font-size:13px; padding:16px 14px; }
-    .wide-notes-signin { font-family:'EB Garamond',serif; font-style:italic; color:var(--ink-light); font-size:13px; padding:12px 14px; }
+    .wide-notes-empty { font-family:'EB Garamond',serif; font-style:italic; color:var(--ink-light); font-size:13px; padding:16px 14px; pointer-events:none; }
+    .wide-notes-signin { font-family:'EB Garamond',serif; font-style:italic; color:var(--ink-light); font-size:13px; padding:12px 14px; pointer-events: all; }
     .wide-notes-signin button { background:none; border:none; color:var(--gold); cursor:pointer; text-decoration:underline; font-size:13px; font-family:'EB Garamond',serif; font-style:italic; }
   }
 
@@ -1259,16 +1263,21 @@ export default function App() {
   useEffect(() => {
     if (!isWide || passageVerses.length === 0) return;
     const measure = () => {
+      const container = wideBodyRef.current;
+      if (!container) return;
+      const containerTop = container.getBoundingClientRect().top + container.scrollTop;
       const offsets = {};
       Object.entries(verseEls.current).forEach(([key, el]) => {
-        if (el) offsets[key] = el.offsetTop;
+        if (el) {
+          const elTop = el.getBoundingClientRect().top + container.scrollTop;
+          offsets[key] = elTop - containerTop;
+        }
       });
       setVerseOffsets(offsets);
     };
-    // Small delay to let DOM settle after render
-    const t = setTimeout(measure, 80);
+    const t = setTimeout(measure, 120);
     return () => clearTimeout(t);
-  }, [passageVerses, isWide, activeTab]);
+  }, [passageVerses, isWide, activeTab, fontSize]);
 
   // ── Load passage ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1563,8 +1572,9 @@ export default function App() {
 
   // ── Panel drag ────────────────────────────────────────────────────────────
   const dragRef = useRef(null);
+  const wideBodyRef = useRef(null);
   const verseEls = useRef({}); // verseKey → DOM element
-  const [verseOffsets, setVerseOffsets] = useState({}); // verseKey → offsetTop relative to passage container
+  const [verseOffsets, setVerseOffsets] = useState({}); // verseKey → offsetTop relative to wide-body
   function onDragStart(e) {
     const startY = e.type === "touchstart" ? e.touches[0].clientY : e.clientY;
     const startH = panelHeight;
@@ -1732,8 +1742,8 @@ export default function App() {
             </div>
           )}
 
-          <div className={isWide ? "wide-body" : ""}>
-          <div className="passage-scroll" style={{ paddingBottom: !isWide && panelOpen ? `${panelHeight + 5}vh` : "0" }}>
+          <div className={isWide ? "wide-body" : ""} ref={isWide ? wideBodyRef : null}>
+          <div className={isWide ? "wide-text-col" : "passage-scroll"} style={{ paddingBottom: !isWide && panelOpen ? `${panelHeight + 5}vh` : "0" }}>
             <div className="passage-container" style={{"--reading-size": fontSize+"px"}}>
               {(() => {
                 return isWide ? null : (
@@ -1817,50 +1827,56 @@ export default function App() {
             const anchoredNotes = comments.filter(c => c.verse_ref);
             return (
               <div className="wide-notes-col">
-                <div style={{position:"relative", minHeight:"100%", paddingBottom:"80px"}}>
-                  {!user && (
-                    <div className="wide-notes-signin">
-                      <button onClick={() => setShowAuth(true)}>Sign in</button> to add verse notes.
+                {!user && (
+                  <div className="wide-notes-signin" style={{position:"absolute", top:8, left:0, right:0}}>
+                    <button onClick={() => setShowAuth(true)}>Sign in</button> to add verse notes.
+                  </div>
+                )}
+                {user && anchoredNotes.length === 0 && !panelAnchor && (
+                  <div className="wide-notes-empty" style={{position:"absolute", top:8, left:0, right:0}}>
+                    Tap a verse number to add a note.
+                  </div>
+                )}
+                {anchoredNotes.map(c => {
+                  const top = verseOffsets[c.verse_ref] ?? null;
+                  if (top === null) return null;
+                  return (
+                    <div key={c.id} className="wide-note-card" style={{top}}>
+                      <div className="wide-note-verse-ref">{c.anchor_text || c.verse_ref}</div>
+                      <div className="wide-note-body">{c.text}</div>
+                      <div className="wide-note-author">{c.username} · {new Date(c.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</div>
                     </div>
-                  )}
-                  {user && anchoredNotes.length === 0 && !panelAnchor && (
-                    <div className="wide-notes-empty">Tap a verse number to add a note.</div>
-                  )}
-                  {anchoredNotes.map(c => {
-                    const offset = verseOffsets[c.verse_ref] ?? 8;
-                    return (
-                      <div key={c.id} className="wide-note-card" style={{marginTop: offset > 8 ? offset : 8}}>
-                        <div className="wide-note-verse-ref">{c.anchor_text || c.verse_ref}</div>
-                        <div className="wide-note-body">{c.text}</div>
-                        <div className="wide-note-author">{c.username} · {new Date(c.created_at).toLocaleDateString("en-US",{month:"short",day:"numeric"})}</div>
+                  );
+                })}
+                {user && panelAnchor && (() => {
+                  const top = verseOffsets[panelAnchor.verseKey] ?? null;
+                  if (top === null) return null;
+                  return (
+                    <div className="wide-note-form" style={{top}}>
+                      <div className="wide-note-verse-ref">Note on {panelAnchor.text}</div>
+                      <textarea
+                        placeholder="Add a note on this verse…"
+                        value={commentText}
+                        onChange={e => setCommentText(e.target.value)}
+                        autoFocus
+                      />
+                      <div className="wide-note-form-actions">
+                        <button className="wide-note-submit" disabled={!commentText.trim()||submitting} onClick={handlePostComment}>
+                          {submitting ? "Saving…" : "Save"}
+                        </button>
+                        <button className="wide-note-cancel" onClick={() => { setPanelAnchor(null); setCommentText(""); }}>Cancel</button>
+                        {userGroups.filter(m=>m.status==="approved").length > 0 && (
+                          <div style={{marginLeft:"auto",display:"flex",gap:"4px"}}>
+                            <button className={`wide-toggle-btn${postVisibility==="personal"?" active":""}`}
+                              onClick={() => setPostVisibility("personal")}>🔒</button>
+                            <button className={`wide-toggle-btn${postVisibility==="group"?" active":""}`}
+                              onClick={() => setPostVisibility("group")}>👥</button>
+                          </div>
+                        )}
                       </div>
-                    );
-                  })}
-                  {user && panelAnchor && (() => {
-                    const offset = verseOffsets[panelAnchor.verseKey] ?? 8;
-                    return (
-                      <div className="wide-note-form" style={{marginTop: offset > 8 ? offset : 8}}>
-                        <div className="wide-note-verse-ref">Note on {panelAnchor.text}</div>
-                        <textarea placeholder="Add a note on this verse…" value={commentText}
-                          onChange={e => setCommentText(e.target.value)} autoFocus />
-                        <div className="wide-note-form-actions">
-                          <button className="wide-note-submit" disabled={!commentText.trim()||submitting} onClick={handlePostComment}>
-                            {submitting ? "Saving…" : "Save"}
-                          </button>
-                          <button className="wide-note-cancel" onClick={() => { setPanelAnchor(null); setCommentText(""); }}>Cancel</button>
-                          {userGroups.filter(m=>m.status==="approved").length > 0 && (
-                            <div style={{marginLeft:"auto",display:"flex",gap:"4px"}}>
-                              <button className={`wide-toggle-btn${postVisibility==="personal"?" active":""}`}
-                                onClick={() => setPostVisibility("personal")}>🔒</button>
-                              <button className={`wide-toggle-btn${postVisibility==="group"?" active":""}`}
-                                onClick={() => setPostVisibility("group")}>👥</button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })()}
