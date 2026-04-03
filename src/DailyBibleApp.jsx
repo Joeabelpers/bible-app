@@ -794,13 +794,19 @@ const styles = `
     .wide-notes-label { font-family:'Lato',sans-serif; font-size:14px; font-weight:900; color:var(--ink); letter-spacing:1px; text-transform:uppercase; opacity:0.6; margin-left:16px; }
 
     /* Individual verse note areas */
-    .verse-note-area { position: absolute; left: 8px; right: 8px; pointer-events: all; }
+    .verse-note-area {
+      position: absolute; left: 8px; right: 8px;
+      max-height: 120px; overflow-y: auto;
+      pointer-events: all;
+    }
     .verse-note-ta {
       width: 100%; border: none; border-bottom: 1px solid var(--border);
       background: transparent; color: var(--ink);
       font-family: 'EB Garamond', serif; font-size: 14px; line-height: 1.6;
-      resize: none; outline: none; padding: 2px 4px; min-height: 24px;
-      overflow: hidden; transition: border-color 0.2s, background 0.15s;
+      resize: none; outline: none; padding: 2px 4px;
+      height: 100%; min-height: 22px;
+      display: block;
+      transition: border-color 0.2s, background 0.15s;
     }
     .verse-note-ta:focus { border-color: var(--gold); background: rgba(41,115,115,0.04); }
     .verse-note-ta::placeholder { color: var(--border); font-style: italic; font-size: 13px; }
@@ -1880,7 +1886,6 @@ export default function App() {
                       className="verse-note-ta"
                       placeholder={`v${v.verse}…`}
                       value={noteText}
-                      rows={noteText ? Math.max(1, noteText.split("\n").length) : 1}
                       onChange={e => setVerseNotes(prev => ({...prev, [vKey]: e.target.value}))}
                       onBlur={e => saveVerseNote(vKey, e.target.value)}
                     />
