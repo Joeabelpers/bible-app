@@ -1133,11 +1133,16 @@ export default function App() {
   // Bible browser state
   const [browserBook, setBrowserBook]       = useState("Genesis");
   const [browserChapter, setBrowserChapter] = useState(1);
-  const [browserChapterInput, setBrowserChapterInput] = useState("1");
   const [browserVerses, setBrowserVerses]   = useState([]);
   const [browserLoading, setBrowserLoading] = useState(false);
   const [browserAnnotations, setBrowserAnnotations] = useState({});
   const [browserComments, setBrowserComments] = useState([]);
+  const [browserLoadedChapters, setBrowserLoadedChapters] = useState([]); // sorted list of loaded ch nums
+  const [browserVisibleChapter, setBrowserVisibleChapter] = useState(1);
+  const [browserNotes, setBrowserNotes]     = useState({});
+  const browserVerseEls = useRef({});
+  const [browserVerseOffsets, setBrowserVerseOffsets] = useState({});
+  const browserScrollRef = useRef(null);
   const [searchQuery, setSearchQuery]       = useState("");
   const [searchMatches, setSearchMatches]   = useState(new Set()); // Set of "ch-vs" for chapter view
   const [globalSearch, setGlobalSearch]     = useState(false);     // true = searching whole Bible
@@ -1331,6 +1336,19 @@ export default function App() {
     return () => clearTimeout(t);
   }, [passageVerses, isWide, activeTab, fontSize]);
 
+  // ── Measure browser verse offsets ────────────────────────────────────────
+  useEffect(() => {
+    if (!isWide || browserVerses.length === 0) return;
+    const t = setTimeout(() => {
+      const offsets = {};
+      Object.entries(browserVerseEls.current).forEach(([key, el]) => {
+        if (el) offsets[key] = el.offsetTop;
+      });
+      setBrowserVerseOffsets(offsets);
+    }, 150);
+    return () => clearTimeout(t);
+  }, [browserVerses, isWide, activeTab, fontSize]);
+
   // ── Load passage ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (activeTab >= readings.length) return;
@@ -1369,37 +1387,58 @@ export default function App() {
     });
   }, [user, activeTab, dateKey]);
 
-  // ── Load bible browser chapter ───────────────────────────────────────────
+  // ── Load bible browser — multi-chapter continuous scroll ─────────────────
+  async function browserLoadChapters(book, chapters) {
+    const max = CHAPTER_COUNTS[book] || 1;
+    const toLoad = chapters.filter(c => c >= 1 && c <= max);
+    if (toLoad.length === 0) return { verses: [], anns: {}, comments: [] };
+    const verses = (await Promise.all(toLoad.map(c => fetchVerses(book, [c], bibleVersion)))).flat();
+    let anns = {};
+    let comments = [];
+    if (user) {
+      const { data: annData } = await supabase.from("annotations").select("*")
+        .eq("user_id", user.id).eq("book", book).in("chapter", toLoad);
+      (annData || []).forEach(a => {
+        const k = `${a.book}-${a.chapter}-${a.verse}`;
+        if (!anns[k]) anns[k] = [];
+        anns[k].push(a);
+      });
+      const { data: cmtData } = await supabase.from("comments").select("verse_ref")
+        .in("date", toLoad.map(c => `bible-${book}-${c}`));
+      comments = cmtData || [];
+      const refs = verses.map(v => `${book}-${v.chapter}-${v.verse}`);
+      if (refs.length > 0) {
+        const { data: noteData } = await supabase.from("verse_notes").select("verse_ref, note_text")
+          .eq("user_id", user.id).in("verse_ref", refs);
+        const noteMap = {};
+        (noteData || []).forEach(n => { noteMap[n.verse_ref] = n.note_text; });
+        setBrowserNotes(prev => ({...prev, ...noteMap}));
+      }
+    }
+    return { verses, anns, comments };
+  }
+
   useEffect(() => {
     if (activeTab !== readings.length + 1) return;
     setBrowserLoading(true);
     setBrowserVerses([]);
-    setSearchMatches(new Set());
-    fetchVerses(browserBook, [browserChapter], bibleVersion).then(verses => {
+    setBrowserAnnotations({});
+    setBrowserComments([]);
+    setBrowserNotes({});
+    setBrowserLoadedChapters([]);
+    setBrowserVisibleChapter(browserChapter);
+    browserVerseEls.current = {};
+    const max = CHAPTER_COUNTS[browserBook] || 1;
+    const initial = [browserChapter, browserChapter + 1, browserChapter + 2].filter(c => c >= 1 && c <= max);
+    browserLoadChapters(browserBook, initial).then(({ verses, anns, comments }) => {
       setBrowserVerses(verses);
+      setBrowserAnnotations(anns);
+      setBrowserComments(comments);
+      setBrowserLoadedChapters(initial);
       setBrowserLoading(false);
     });
-    // Load annotations for this chapter
-    if (user) {
-      supabase.from("annotations").select("*")
-        .eq("user_id", user.id).eq("book", browserBook).eq("chapter", browserChapter)
-        .then(({ data }) => {
-          if (data) {
-            const map = {};
-            data.forEach(a => {
-              const k = `${a.book}-${a.chapter}-${a.verse}`;
-              if (!map[k]) map[k] = [];
-              map[k].push(a);
-            });
-            setBrowserAnnotations(map);
-          }
-        });
-    }
-    // Load comments count per verse for this chapter
-    supabase.from("comments").select("verse_ref")
-      .eq("date", `bible-${browserBook}-${browserChapter}`)
-      .then(({ data }) => setBrowserComments(data || []));
-  }, [activeTab, browserBook, browserChapter, user, bibleVersion]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, browserBook, browserChapter, user?.id, bibleVersion]);
 
   function handleBrowserSearch() {
     if (!searchQuery.trim()) {
@@ -1434,27 +1473,34 @@ export default function App() {
     }
   }
 
-  function navigateChapter(delta) {
+  async function browserAppendChapter() {
     const max = CHAPTER_COUNTS[browserBook] || 1;
-    const next = browserChapter + delta;
-    if (next < 1 || next > max) return;
-    setBrowserChapter(next);
-    setBrowserChapterInput(String(next));
+    const last = Math.max(...browserLoadedChapters);
+    if (last >= max) return;
+    const next = last + 1;
+    const { verses, anns, comments } = await browserLoadChapters(browserBook, [next]);
+    setBrowserVerses(prev => [...prev, ...verses]);
+    setBrowserAnnotations(prev => ({...prev, ...anns}));
+    setBrowserComments(prev => [...prev, ...comments]);
+    setBrowserLoadedChapters(prev => [...prev, next]);
   }
 
-  function handleChapterInputChange(val) {
-    setBrowserChapterInput(val);
-    const n = parseInt(val);
-    const max = CHAPTER_COUNTS[browserBook] || 1;
-    if (!isNaN(n) && n >= 1 && n <= max) {
-      setBrowserChapter(n);
-    }
-  }
-
-  function handleChapterSelectChange(val) {
-    const n = parseInt(val);
-    setBrowserChapter(n);
-    setBrowserChapterInput(String(n));
+  async function browserPrependChapter() {
+    const first = Math.min(...browserLoadedChapters);
+    if (first <= 1) return;
+    const prev = first - 1;
+    const { verses, anns, comments } = await browserLoadChapters(browserBook, [prev]);
+    // Preserve scroll position when prepending
+    const scroller = browserScrollRef.current;
+    const prevHeight = scroller ? scroller.scrollHeight : 0;
+    setBrowserVerses(existing => [...verses, ...existing]);
+    setBrowserAnnotations(existing => ({...anns, ...existing}));
+    setBrowserComments(existing => [...comments, ...existing]);
+    setBrowserLoadedChapters(existing => [prev, ...existing]);
+    // Restore scroll after DOM updates
+    requestAnimationFrame(() => {
+      if (scroller) scroller.scrollTop += scroller.scrollHeight - prevHeight;
+    });
   }
 
   function handleBrowserVerseMouseUp(e, verse) {
@@ -2057,31 +2103,19 @@ export default function App() {
       {/* BIBLE BROWSER TAB */}
       {activeTab === readings.length + 1 && (
         <div className="bible-browser">
-          {/* Book + Chapter nav */}
+          {/* Book selector + search bar */}
           <div className="bible-nav">
             <select className="bible-select" value={browserBook}
-              onChange={e => { setBrowserBook(e.target.value); setBrowserChapter(1); setBrowserChapterInput("1"); setSearchQuery(""); setGlobalSearch(false); setGlobalResults([]); }}>
+              onChange={e => { setBrowserBook(e.target.value); setBrowserChapter(1); setSearchQuery(""); setGlobalSearch(false); setGlobalResults([]); }}>
               {BIBLE_BOOKS.map(b => <option key={b} value={b}>{b}</option>)}
             </select>
-            <div className="bible-chapter-nav">
-              <button className="bible-ch-btn" onClick={() => navigateChapter(-1)}
-                disabled={browserChapter <= 1}>‹</button>
-              <input className="bible-ch-input"
-                type="number" min="1" max={CHAPTER_COUNTS[browserBook] || 1}
-                value={browserChapterInput}
-                onChange={e => handleChapterInputChange(e.target.value)}
-                onFocus={e => e.target.select()}
-                title="Type a chapter number" />
-              <select className="bible-ch-select" value={browserChapter}
-                onChange={e => handleChapterSelectChange(e.target.value)}
-                title="Select a chapter">
-                {Array.from({length: CHAPTER_COUNTS[browserBook] || 1}, (_,i) =>
-                  <option key={i+1} value={i+1}>Ch {i+1}</option>
-                )}
-              </select>
-              <button className="bible-ch-btn" onClick={() => navigateChapter(1)}
-                disabled={browserChapter >= (CHAPTER_COUNTS[browserBook] || 1)}>›</button>
-            </div>
+            <select className="bible-ch-select" value={browserChapter}
+              onChange={e => { setBrowserChapter(parseInt(e.target.value)); }}
+              title="Jump to chapter">
+              {Array.from({length: CHAPTER_COUNTS[browserBook] || 1}, (_,i) =>
+                <option key={i+1} value={i+1}>Ch {i+1}</option>
+              )}
+            </select>
           </div>
 
           {/* Search bar */}
@@ -2102,7 +2136,7 @@ export default function App() {
             </label>
           </div>
 
-          {/* Verse display — global search results OR chapter view */}
+          {/* Global search results */}
           {globalSearch && (globalResults.length > 0 || globalSearching) ? (
             <div className="passage-scroll" style={{ paddingBottom: panelOpen ? `${panelHeight+5}vh` : "0" }}>
               {globalSearching ? (
@@ -2121,7 +2155,6 @@ export default function App() {
                         <div key={i} className="global-result-card"
                           onClick={() => {
                             setBrowserBook(v.book); setBrowserChapter(v.chapter);
-                            setBrowserChapterInput(String(v.chapter));
                             setGlobalSearch(false); setSearchQuery(""); setGlobalResults([]);
                             setSearchMatches(new Set([`${v.chapter}-${v.verse}`]));
                           }}>
@@ -2139,42 +2172,118 @@ export default function App() {
               )}
             </div>
           ) : (
-            <div className="passage-scroll" style={{ paddingBottom: panelOpen ? `${panelHeight+5}vh` : "0" }}>
-              <div className="passage-container" style={{"--reading-size": fontSize+"px"}}>
-                <div className="passage-title">{browserBook} {browserChapter}</div>
-                {searchMatches.size > 0 && (
-                  <div className="search-results-label">{searchMatches.size} match{searchMatches.size!==1?"es":""} for "{globalQuery}"</div>
-                )}
-                {browserLoading ? (
-                  <div className="loading-text">Loading…</div>
-                ) : browserVerses.length > 0 ? (
-                  <div className="passage-text">
-                    {browserVerses.map((v, i) => {
-                      const vKey = `${browserBook}-${v.chapter}-${v.verse}`;
-                      const anns = browserAnnotations[vKey] || [];
-                      const fnCount = browserComments.filter(c => c.verse_ref === vKey).length;
-                      const isMatch = searchMatches.has(`${v.chapter}-${v.verse}`);
-                      return (
-                        <p key={i} className={`verse${isMatch?" search-match":""}`}
-                          onMouseUp={e => handleBrowserVerseMouseUp(e, {...v, book:browserBook})}
-                          onTouchEnd={e => handleBrowserVerseMouseUp(e, {...v, book:browserBook})}>
-                          <span className="verse-num">{v.chapter}:{v.verse}</span>
-                          <span className="verse-body"><AnnotatedVerse text={v.text} annotations={anns} /></span>
-                          {fnCount > 0 && (
-                            <span className="verse-footnote"
-                              onClick={e => { e.stopPropagation();
-                                setPanelAnchor({ verseKey: vKey, text: `${browserBook} ${v.chapter}:${v.verse}` });
-                                setPanelOpen(true); }}>
-                              {supNum(fnCount)}
-                            </span>
-                          )}
-                        </p>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="loading-text">No verses found.</div>
-                )}
+            /* Continuous scroll chapter view */
+            <div className={isWide ? "wide-wrapper" : ""} style={isWide ? {flex:1,overflow:"hidden",display:"flex",flexDirection:"column"} : {}}>
+              {/* Floating chapter header — prev / current / next */}
+              <div className="floating-title" style={{background: darkMode ? "var(--gold)" : "var(--accent)"}}>
+                {(() => {
+                  const max = CHAPTER_COUNTS[browserBook] || 1;
+                  const prev = browserVisibleChapter - 1;
+                  const next = browserVisibleChapter + 1;
+                  return (<>
+                    {prev >= 1 && <span className="floating-title-chapter" style={{color:"var(--ink)", opacity:0.35, marginRight:"12px"}}>{prev}</span>}
+                    <span className="floating-title-book" style={{color:"var(--ink)"}}>{browserBook}</span>
+                    <span className="floating-title-chapter" style={{color:"var(--ink)", marginLeft:"6px"}}>{browserVisibleChapter}</span>
+                    {next <= max && <span className="floating-title-chapter" style={{color:"var(--ink)", opacity:0.35, marginLeft:"12px"}}>{next}</span>}
+                  </>);
+                })()}
+              </div>
+
+              <div className={isWide ? "wide-body" : ""}>
+              <div className={isWide ? "wide-text-col" : "passage-scroll"}
+                ref={browserScrollRef}
+                style={{ paddingBottom: !isWide && panelOpen ? `${panelHeight+5}vh` : "0" }}
+                onScroll={e => {
+                  const el = e.currentTarget;
+                  if (el.scrollTop < 200) browserPrependChapter();
+                  if (el.scrollHeight - el.scrollTop - el.clientHeight < 400) browserAppendChapter();
+                }}>
+                <div className="passage-container" style={{"--reading-size": fontSize+"px"}}>
+                  {searchMatches.size > 0 && (
+                    <div className="search-results-label">{searchMatches.size} match{searchMatches.size!==1?"es":""} for "{globalQuery}"</div>
+                  )}
+                  {browserLoading ? (
+                    <div className="loading-text" style={{padding:"40px 18px"}}>Loading…</div>
+                  ) : browserVerses.length > 0 ? (
+                    <div className="passage-text"
+                      ref={el => {
+                        if (!el) return;
+                        const markers = el.querySelectorAll("[data-browser-chapter]");
+                        if (!markers.length) return;
+                        const obs = new IntersectionObserver(entries => {
+                          let topmost = null;
+                          entries.forEach(entry => {
+                            if (entry.isIntersecting) {
+                              const ch = parseInt(entry.target.dataset.browserChapter);
+                              if (topmost === null || ch < topmost) topmost = ch;
+                            }
+                          });
+                          if (topmost !== null) setBrowserVisibleChapter(topmost);
+                        }, { threshold: 0, rootMargin: "0px 0px -70% 0px" });
+                        markers.forEach(m => obs.observe(m));
+                      }}>
+                      {(() => {
+                        let lastChapter = null;
+                        return browserVerses.map((v, i) => {
+                          const vKey = `${browserBook}-${v.chapter}-${v.verse}`;
+                          const anns = browserAnnotations[vKey] || [];
+                          const fnCount = browserComments.filter(c => c.verse_ref === vKey).length;
+                          const isMatch = searchMatches.has(`${v.chapter}-${v.verse}`);
+                          const isNewChapter = v.chapter !== lastChapter;
+                          lastChapter = v.chapter;
+                          return (
+                            <div key={vKey} ref={el => { if (el) browserVerseEls.current[vKey] = el; }}>
+                              {isNewChapter && (
+                                <span data-browser-chapter={v.chapter} style={{display:"block",height:0,overflow:"hidden"}} />
+                              )}
+                              <p className={`verse${isMatch?" search-match":""}`}
+                                onMouseUp={e => handleBrowserVerseMouseUp(e, {...v, book:browserBook})}
+                                onTouchEnd={e => handleBrowserVerseMouseUp(e, {...v, book:browserBook})}>
+                                <span className="verse-num">{v.chapter}:{v.verse}</span>
+                                <span className="verse-body"><AnnotatedVerse text={v.text} annotations={anns} /></span>
+                                {fnCount > 0 && (
+                                  <span className="verse-footnote"
+                                    onClick={e => { e.stopPropagation();
+                                      setPanelAnchor({ verseKey: vKey, text: `${browserBook} ${v.chapter}:${v.verse}` });
+                                      if (!isWide) setPanelOpen(true); }}>
+                                    {supNum(fnCount)}
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  ) : (
+                    <div className="loading-text">No verses found.</div>
+                  )}
+
+                  {/* Notes column — wide screens */}
+                  {isWide && user && (
+                    <div className="wide-notes-col">
+                      {browserVerses.map(v => {
+                        const vKey = `${browserBook}-${v.chapter}-${v.verse}`;
+                        const top = browserVerseOffsets[vKey];
+                        if (top === undefined) return null;
+                        const noteText = browserNotes[vKey] || "";
+                        return (
+                          <div key={vKey} className="verse-note-area" style={{top}}>
+                            <textarea
+                              className="verse-note-ta"
+                              placeholder={`${v.chapter}:${v.verse}…`}
+                              value={noteText}
+                              onChange={e => setBrowserNotes(prev => ({...prev, [vKey]: e.target.value}))}
+                              onBlur={e => saveVerseNote(vKey, e.target.value)}
+                            />
+                            {savingNote === vKey && <div className="verse-note-saving">saving…</div>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
               </div>
             </div>
           )}
