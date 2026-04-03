@@ -752,10 +752,11 @@ const styles = `
     .wide-wrapper { display: flex; flex-direction: column; flex: 1; height: calc(100vh - 52px - calc(56px + env(safe-area-inset-bottom, 0px))); overflow: hidden; }
     /* Single shared scroller */
     .wide-body { display: flex; flex-direction: row; flex: 1; overflow-y: auto; overflow-x: hidden; position: relative; -webkit-overflow-scrolling: touch; }
-    /* Left: bible text, natural height, right-padding makes room for notes col */
-    .wide-text-col { flex: 1; padding-right: 340px; min-height: 100%; }
-    /* Right: absolutely positioned alongside, matches scroll of parent */
-    .wide-notes-col { position: absolute; top: 0; right: 0; width: 320px; min-height: 100%; border-left: 2px solid var(--border); background: var(--white); pointer-events: none; }
+    /* Text col fills full width, passage-container handles its own right padding */
+    .wide-text-col { flex: 1; min-height: 100%; }
+    .wide-text-col .passage-container { padding-right: 340px; }
+    /* Notes col is inside passage-container, so offsetTop coords match exactly */
+    .wide-notes-col { position: absolute; top: 0; right: 0; width: 320px; bottom: 0; border-left: 2px solid var(--border); background: var(--white); pointer-events: none; }
     .dark .wide-notes-col { background: var(--parchment-dark); }
     /* passage-scroll becomes unstyled on wide */
     .wide-body .passage-scroll { height: auto !important; overflow: visible !important; padding-bottom: 0 !important; flex: 1; }
@@ -776,9 +777,6 @@ const styles = `
     .wide-toggle-btn { padding:3px 10px; border-radius:12px; border:1px solid rgba(0,0,0,0.2); background:none; font-family:'Lato',sans-serif; font-size:11px; font-weight:700; color:var(--ink); cursor:pointer; transition:all 0.2s; opacity:0.75; pointer-events: all; }
     .wide-toggle-btn.active { background:rgba(0,0,0,0.15); opacity:1; border-color:transparent; }
 
-    /* Note column — absolutely positioned alongside text, scrolls with parent */
-    .wide-notes-col { position: absolute; top: 0; right: 0; width: 320px; min-height: 100%; border-left: 2px solid var(--border); background: var(--white); pointer-events: none; }
-    .dark .wide-notes-col { background: var(--parchment-dark); }
     .bottom-panel { display: none !important; }
     .panel-backdrop { display: none !important; }
 
@@ -1861,41 +1859,41 @@ export default function App() {
               ) : (
                 <div className="loading-text" style={{padding:"40px 18px"}}>Passage text unavailable. <a href={`https://www.biblegateway.com/passage/?search=${encodeURIComponent(readings[activeTab])}&version=KJV`} target="_blank" rel="noreferrer" style={{color:"#8b6914"}}>BibleGateway ↗</a></div>
               )}
+
+              {/* PARALLEL NOTES COLUMN — inside passage-container so offsetTop coords match */}
+              {isWide && (() => {
+                const parsed2 = parsePassageRef(readings[activeTab]);
+                const bookName2 = parsed2.books[0].book;
+                return (
+                <div className="wide-notes-col">
+                  {!user && (
+                    <div className="wide-notes-signin">
+                      <button onClick={() => setShowAuth(true)}>Sign in</button> to add notes.
+                    </div>
+                  )}
+                  {user && passageVerses.map(v => {
+                    const vKey = `${bookName2}-${v.chapter}-${v.verse}`;
+                    const top = verseOffsets[vKey];
+                    if (top === undefined) return null;
+                    const noteText = verseNotes[vKey] || "";
+                    return (
+                      <div key={vKey} className="verse-note-area" style={{top}}>
+                        <textarea
+                          className="verse-note-ta"
+                          placeholder={`v${v.verse}…`}
+                          value={noteText}
+                          onChange={e => setVerseNotes(prev => ({...prev, [vKey]: e.target.value}))}
+                          onBlur={e => saveVerseNote(vKey, e.target.value)}
+                        />
+                        {savingNote === vKey && <div className="verse-note-saving">saving…</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+                );
+              })()}
             </div>
           </div>
-
-          {/* PARALLEL NOTES COLUMN — wide screens only */}
-          {isWide && (() => {
-            const parsed2 = parsePassageRef(readings[activeTab]);
-            const bookName2 = parsed2.books[0].book;
-            return (
-            <div className="wide-notes-col">
-              {!user && (
-                <div className="wide-notes-signin">
-                  <button onClick={() => setShowAuth(true)}>Sign in</button> to add notes.
-                </div>
-              )}
-              {user && passageVerses.map(v => {
-                const vKey = `${bookName2}-${v.chapter}-${v.verse}`;
-                const top = verseOffsets[vKey];
-                if (top === undefined) return null;
-                const noteText = verseNotes[vKey] || "";
-                return (
-                  <div key={vKey} className="verse-note-area" style={{top}}>
-                    <textarea
-                      className="verse-note-ta"
-                      placeholder={`v${v.verse}…`}
-                      value={noteText}
-                      onChange={e => setVerseNotes(prev => ({...prev, [vKey]: e.target.value}))}
-                      onBlur={e => saveVerseNote(vKey, e.target.value)}
-                    />
-                    {savingNote === vKey && <div className="verse-note-saving">saving…</div>}
-                  </div>
-                );
-              })}
-            </div>
-            );
-          })()}
           </div>
           </div>
           );
