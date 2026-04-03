@@ -1138,6 +1138,7 @@ export default function App() {
   const [browserAnnotations, setBrowserAnnotations] = useState({});
   const [browserComments, setBrowserComments] = useState([]);
   const [browserLoadedChapters, setBrowserLoadedChapters] = useState([]); // sorted list of loaded ch nums
+  const browserLoadedChaptersRef = useRef([]);
   const [browserVisibleChapter, setBrowserVisibleChapter] = useState(1);
   const [browserNotes, setBrowserNotes]     = useState({});
   const browserVerseEls = useRef({});
@@ -1427,6 +1428,7 @@ export default function App() {
     setBrowserNotes({});
     setBrowserLoadedChapters([]);
     setBrowserVisibleChapter(browserChapter);
+    browserLoadedChaptersRef.current = [];
     browserVerseEls.current = {};
     const max = CHAPTER_COUNTS[browserBook] || 1;
     const initial = [browserChapter, browserChapter + 1, browserChapter + 2].filter(c => c >= 1 && c <= max);
@@ -1434,6 +1436,7 @@ export default function App() {
       setBrowserVerses(verses);
       setBrowserAnnotations(anns);
       setBrowserComments(comments);
+      browserLoadedChaptersRef.current = initial;
       setBrowserLoadedChapters(initial);
       setBrowserLoading(false);
     });
@@ -1473,49 +1476,49 @@ export default function App() {
     }
   }
 
+  function setBrowserChapters(val) {
+    const next = typeof val === 'function' ? val(browserLoadedChaptersRef.current) : val;
+    browserLoadedChaptersRef.current = next;
+    setBrowserLoadedChapters(next);
+  }
+
   async function browserAppendChapter() {
+    const loaded = browserLoadedChaptersRef.current;
+    if (loaded.length === 0) return;
     const max = CHAPTER_COUNTS[browserBook] || 1;
-    if (browserLoadedChapters.length === 0) return;
-    const last = Math.max(...browserLoadedChapters);
+    const last = Math.max(...loaded);
     if (last >= max) return;
     const next = last + 1;
+    const firstCh = Math.min(...loaded);
     const { verses, anns, comments } = await browserLoadChapters(browserBook, [next]);
-    const firstCh = Math.min(...browserLoadedChapters);
-    // Drop oldest chapter from front to keep 3 in memory
-    setBrowserVerses(prev => {
-      const kept = prev.filter(v => v.chapter !== firstCh);
-      return [...kept, ...verses];
-    });
+    setBrowserVerses(prev => [...prev.filter(v => v.chapter !== firstCh), ...verses]);
     setBrowserAnnotations(prev => {
       const kept = {...prev};
-      Object.keys(kept).forEach(k => { if (kept[k] && k.includes(`-${firstCh}-`)) delete kept[k]; });
+      Object.keys(kept).forEach(k => { if (k.startsWith(`${browserBook}-${firstCh}-`)) delete kept[k]; });
       return {...kept, ...anns};
     });
-    setBrowserComments(prev => [...prev.filter(c => !c.verse_ref?.includes(`-${firstCh}-`)), ...comments]);
-    setBrowserLoadedChapters([...browserLoadedChapters.slice(1), next]);
+    setBrowserComments(prev => [...prev.filter(c => !c.verse_ref?.startsWith(`${browserBook}-${firstCh}-`)), ...comments]);
+    setBrowserChapters([...loaded.slice(1), next]);
   }
 
   async function browserPrependChapter() {
-    if (browserLoadedChapters.length === 0) return;
-    const first = Math.min(...browserLoadedChapters);
+    const loaded = browserLoadedChaptersRef.current;
+    if (loaded.length === 0) return;
+    const first = Math.min(...loaded);
     if (first <= 1) return;
     const prev = first - 1;
+    const lastCh = Math.max(...loaded);
     const { verses, anns, comments } = await browserLoadChapters(browserBook, [prev]);
-    const lastCh = Math.max(...browserLoadedChapters);
     const scroller = browserScrollRef.current;
     const prevHeight = scroller ? scroller.scrollHeight : 0;
-    // Drop newest chapter from end to keep 3 in memory
-    setBrowserVerses(existing => {
-      const kept = existing.filter(v => v.chapter !== lastCh);
-      return [...verses, ...kept];
-    });
+    setBrowserVerses(existing => [...verses, ...existing.filter(v => v.chapter !== lastCh)]);
     setBrowserAnnotations(existing => {
       const kept = {...existing};
-      Object.keys(kept).forEach(k => { if (kept[k] && k.includes(`-${lastCh}-`)) delete kept[k]; });
+      Object.keys(kept).forEach(k => { if (k.startsWith(`${browserBook}-${lastCh}-`)) delete kept[k]; });
       return {...anns, ...kept};
     });
-    setBrowserComments(existing => [...comments, ...existing.filter(c => !c.verse_ref?.includes(`-${lastCh}-`))]);
-    setBrowserLoadedChapters([prev, ...browserLoadedChapters.slice(0, -1)]);
+    setBrowserComments(existing => [...comments, ...existing.filter(c => !c.verse_ref?.startsWith(`${browserBook}-${lastCh}-`))]);
+    setBrowserChapters([prev, ...loaded.slice(0, -1)]);
     requestAnimationFrame(() => {
       if (scroller) scroller.scrollTop += scroller.scrollHeight - prevHeight;
     });
@@ -2186,14 +2189,13 @@ export default function App() {
             </div>
           ) : (
             /* Continuous scroll chapter view */
-            <div className={isWide ? "wide-wrapper" : ""} style={isWide ? {flex:1,overflow:"hidden",display:"flex",flexDirection:"column"} : {}}>
-              {/* Combined chapter indicator + search bar */}
+            <div style={{display:"flex", flexDirection:"column", flex:1, overflow:"hidden"}}>
+              {/* Combined chapter indicator + search — flex child, always visible */}
               <div style={{
-                display:"flex", alignItems:"center", gap:"8px",
+                display:"flex", alignItems:"center", gap:"8px", flexShrink:0,
                 background: darkMode ? "var(--gold)" : "var(--accent)",
-                padding:"6px 12px", flexShrink:0, position:"sticky", top:0, zIndex:20
+                padding:"6px 12px"
               }}>
-                {/* Chapter indicators */}
                 {(() => {
                   const max = CHAPTER_COUNTS[browserBook] || 1;
                   const prev = browserVisibleChapter - 1;
@@ -2206,21 +2208,20 @@ export default function App() {
                     </div>
                   );
                 })()}
-                {/* Divider */}
                 <div style={{width:"1px", height:"20px", background:"rgba(0,0,0,0.2)", flexShrink:0}} />
-                {/* Search */}
                 <input className="bible-search-input" style={{flex:1, fontSize:"13px", padding:"4px 8px"}}
                   placeholder="Search…"
                   value={searchQuery}
                   onChange={e => { setSearchQuery(e.target.value); if (!e.target.value.trim()) { setSearchMatches(new Set()); setGlobalResults([]); } }}
                   onKeyDown={e => e.key === "Enter" && handleBrowserSearch()} />
                 <button className="bible-search-btn" style={{padding:"4px 10px", fontSize:"12px"}} onClick={handleBrowserSearch}>Go</button>
-                <label className="search-scope-toggle" style={{fontSize:"11px", whiteSpace:"nowrap"}}>
+                <label style={{display:"flex", alignItems:"center", gap:"4px", fontSize:"11px", color:"var(--ink)", fontFamily:"'Lato',sans-serif", cursor:"pointer", whiteSpace:"nowrap"}}>
                   <input type="checkbox" checked={globalSearch}
                     onChange={e => { setGlobalSearch(e.target.checked); setSearchMatches(new Set()); setGlobalResults([]); }} />
                   All
                 </label>
               </div>
+              <div className={isWide ? "wide-wrapper" : ""} style={isWide ? {flex:1,overflow:"hidden",display:"flex",flexDirection:"column"} : {flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>
 
               <div className={isWide ? "wide-body" : ""}>
               <div className={isWide ? "wide-text-col" : "passage-scroll"}
@@ -2319,6 +2320,7 @@ export default function App() {
               </div>
               </div>
             </div>
+          </div>
           )}
         </div>
       )}
