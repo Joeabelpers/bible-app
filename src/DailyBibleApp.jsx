@@ -1475,29 +1475,47 @@ export default function App() {
 
   async function browserAppendChapter() {
     const max = CHAPTER_COUNTS[browserBook] || 1;
+    if (browserLoadedChapters.length === 0) return;
     const last = Math.max(...browserLoadedChapters);
     if (last >= max) return;
     const next = last + 1;
     const { verses, anns, comments } = await browserLoadChapters(browserBook, [next]);
-    setBrowserVerses(prev => [...prev, ...verses]);
-    setBrowserAnnotations(prev => ({...prev, ...anns}));
-    setBrowserComments(prev => [...prev, ...comments]);
-    setBrowserLoadedChapters(prev => [...prev, next]);
+    const firstCh = Math.min(...browserLoadedChapters);
+    // Drop oldest chapter from front to keep 3 in memory
+    setBrowserVerses(prev => {
+      const kept = prev.filter(v => v.chapter !== firstCh);
+      return [...kept, ...verses];
+    });
+    setBrowserAnnotations(prev => {
+      const kept = {...prev};
+      Object.keys(kept).forEach(k => { if (kept[k] && k.includes(`-${firstCh}-`)) delete kept[k]; });
+      return {...kept, ...anns};
+    });
+    setBrowserComments(prev => [...prev.filter(c => !c.verse_ref?.includes(`-${firstCh}-`)), ...comments]);
+    setBrowserLoadedChapters([...browserLoadedChapters.slice(1), next]);
   }
 
   async function browserPrependChapter() {
+    if (browserLoadedChapters.length === 0) return;
     const first = Math.min(...browserLoadedChapters);
     if (first <= 1) return;
     const prev = first - 1;
     const { verses, anns, comments } = await browserLoadChapters(browserBook, [prev]);
-    // Preserve scroll position when prepending
+    const lastCh = Math.max(...browserLoadedChapters);
     const scroller = browserScrollRef.current;
     const prevHeight = scroller ? scroller.scrollHeight : 0;
-    setBrowserVerses(existing => [...verses, ...existing]);
-    setBrowserAnnotations(existing => ({...anns, ...existing}));
-    setBrowserComments(existing => [...comments, ...existing]);
-    setBrowserLoadedChapters(existing => [prev, ...existing]);
-    // Restore scroll after DOM updates
+    // Drop newest chapter from end to keep 3 in memory
+    setBrowserVerses(existing => {
+      const kept = existing.filter(v => v.chapter !== lastCh);
+      return [...verses, ...kept];
+    });
+    setBrowserAnnotations(existing => {
+      const kept = {...existing};
+      Object.keys(kept).forEach(k => { if (kept[k] && k.includes(`-${lastCh}-`)) delete kept[k]; });
+      return {...anns, ...kept};
+    });
+    setBrowserComments(existing => [...comments, ...existing.filter(c => !c.verse_ref?.includes(`-${lastCh}-`))]);
+    setBrowserLoadedChapters([prev, ...browserLoadedChapters.slice(0, -1)]);
     requestAnimationFrame(() => {
       if (scroller) scroller.scrollTop += scroller.scrollHeight - prevHeight;
     });
@@ -1757,17 +1775,17 @@ export default function App() {
                   WebkitAppearance:"none", appearance:"none", textAlign:"center"}}>
                 {BIBLE_BOOKS.map(b => <option key={b} value={b} style={{background:"var(--parchment)",color:"#221E1E"}}>{b}</option>)}
               </select>
-              <span style={{color:"var(--ink)", fontFamily:"'Lato',sans-serif", fontSize:"17px", fontWeight:"700", opacity:0.6}}>·</span>
-              <select
-                value={browserChapter}
-                onChange={e => setBrowserChapter(parseInt(e.target.value))}
-                style={{background:"transparent", border:"none", color:"var(--ink)", fontFamily:"'Lato',sans-serif",
-                  fontSize:"17px", fontWeight:"700", cursor:"pointer", outline:"none", width:"48px",
-                  WebkitAppearance:"none", appearance:"none", textAlign:"center"}}>
-                {Array.from({length: CHAPTER_COUNTS[browserBook] || 1}, (_,i) =>
-                  <option key={i+1} value={i+1} style={{background:"var(--parchment)",color:"#221E1E"}}>{i+1}</option>
-                )}
-              </select>
+              <span style={{color:"var(--ink)", opacity:0.5, margin:"0 2px"}}>·</span>
+              {(() => {
+                const max = CHAPTER_COUNTS[browserBook] || 1;
+                const prev = browserVisibleChapter - 1;
+                const next = browserVisibleChapter + 1;
+                return (<>
+                  {prev >= 1 && <span style={{color:"var(--ink)", fontFamily:"'Lato',sans-serif", fontSize:"17px", fontWeight:"700", opacity:0.35}}>{prev}</span>}
+                  <span style={{color:"var(--ink)", fontFamily:"'Lato',sans-serif", fontSize:"17px", fontWeight:"700", margin:"0 6px"}}>{browserVisibleChapter}</span>
+                  {next <= max && <span style={{color:"var(--ink)", fontFamily:"'Lato',sans-serif", fontSize:"17px", fontWeight:"700", opacity:0.35}}>{next}</span>}
+                </>);
+              })()}
             </div>
           ) : (
             /* All other tabs — show date nav */
@@ -2131,24 +2149,6 @@ export default function App() {
       {/* BIBLE BROWSER TAB */}
       {activeTab === readings.length + 1 && (
         <div className="bible-browser">
-          {/* Search bar — fixed at top of bible browser, doesn't scroll */}
-          <div className="bible-search-bar" style={{flexShrink:0}}>
-            <input className="bible-search-input"
-              placeholder={globalSearch ? "Search entire Bible…" : "Search this chapter…"}
-              value={searchQuery}
-              onChange={e => {
-                setSearchQuery(e.target.value);
-                if (!e.target.value.trim()) { setSearchMatches(new Set()); setGlobalResults([]); }
-              }}
-              onKeyDown={e => e.key === "Enter" && handleBrowserSearch()} />
-            <button className="bible-search-btn" onClick={handleBrowserSearch}>Search</button>
-            <label className="search-scope-toggle">
-              <input type="checkbox" checked={globalSearch}
-                onChange={e => { setGlobalSearch(e.target.checked); setSearchMatches(new Set()); setGlobalResults([]); }} />
-              All Bible
-            </label>
-          </div>
-
           {/* Global search results */}
           {globalSearch && (globalResults.length > 0 || globalSearching) ? (
             <div className="passage-scroll" style={{ paddingBottom: panelOpen ? `${panelHeight+5}vh` : "0" }}>
@@ -2187,18 +2187,39 @@ export default function App() {
           ) : (
             /* Continuous scroll chapter view */
             <div className={isWide ? "wide-wrapper" : ""} style={isWide ? {flex:1,overflow:"hidden",display:"flex",flexDirection:"column"} : {}}>
-              {/* Floating chapter indicator — prev / current / next */}
-              <div className="floating-title" style={{background: darkMode ? "var(--gold)" : "var(--accent)"}}>
+              {/* Combined chapter indicator + search bar */}
+              <div style={{
+                display:"flex", alignItems:"center", gap:"8px",
+                background: darkMode ? "var(--gold)" : "var(--accent)",
+                padding:"6px 12px", flexShrink:0, position:"sticky", top:0, zIndex:20
+              }}>
+                {/* Chapter indicators */}
                 {(() => {
                   const max = CHAPTER_COUNTS[browserBook] || 1;
                   const prev = browserVisibleChapter - 1;
                   const next = browserVisibleChapter + 1;
-                  return (<>
-                    {prev >= 1 && <span className="floating-title-chapter" style={{color:"var(--ink)", opacity:0.35, marginRight:"16px"}}>{prev}</span>}
-                    <span className="floating-title-chapter" style={{color:"var(--ink)", fontSize:"20px"}}>{browserVisibleChapter}</span>
-                    {next <= max && <span className="floating-title-chapter" style={{color:"var(--ink)", opacity:0.35, marginLeft:"16px"}}>{next}</span>}
-                  </>);
+                  return (
+                    <div style={{display:"flex", alignItems:"center", gap:"10px", flexShrink:0}}>
+                      {prev >= 1 && <span className="floating-title-chapter" style={{color:"var(--ink)", opacity:0.35}}>{prev}</span>}
+                      <span className="floating-title-chapter" style={{color:"var(--ink)"}}>{browserVisibleChapter}</span>
+                      {next <= max && <span className="floating-title-chapter" style={{color:"var(--ink)", opacity:0.35}}>{next}</span>}
+                    </div>
+                  );
                 })()}
+                {/* Divider */}
+                <div style={{width:"1px", height:"20px", background:"rgba(0,0,0,0.2)", flexShrink:0}} />
+                {/* Search */}
+                <input className="bible-search-input" style={{flex:1, fontSize:"13px", padding:"4px 8px"}}
+                  placeholder="Search…"
+                  value={searchQuery}
+                  onChange={e => { setSearchQuery(e.target.value); if (!e.target.value.trim()) { setSearchMatches(new Set()); setGlobalResults([]); } }}
+                  onKeyDown={e => e.key === "Enter" && handleBrowserSearch()} />
+                <button className="bible-search-btn" style={{padding:"4px 10px", fontSize:"12px"}} onClick={handleBrowserSearch}>Go</button>
+                <label className="search-scope-toggle" style={{fontSize:"11px", whiteSpace:"nowrap"}}>
+                  <input type="checkbox" checked={globalSearch}
+                    onChange={e => { setGlobalSearch(e.target.checked); setSearchMatches(new Set()); setGlobalResults([]); }} />
+                  All
+                </label>
               </div>
 
               <div className={isWide ? "wide-body" : ""}>
