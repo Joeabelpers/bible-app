@@ -1139,6 +1139,9 @@ export default function App() {
   const [browserComments, setBrowserComments] = useState([]);
   const [browserLoadedChapters, setBrowserLoadedChapters] = useState([]); // sorted list of loaded ch nums
   const browserLoadedChaptersRef = useRef([]);
+  const browserBookRef = useRef("Genesis");
+  const browserAppendingRef = useRef(false);
+  const browserPrependingRef = useRef(false);
   const [browserVisibleChapter, setBrowserVisibleChapter] = useState(1);
   const [browserNotes, setBrowserNotes]     = useState({});
   const browserVerseEls = useRef({});
@@ -1434,6 +1437,9 @@ export default function App() {
     setBrowserLoadedChapters([]);
     setBrowserVisibleChapter(browserChapter);
     browserLoadedChaptersRef.current = [];
+    browserBookRef.current = browserBook;
+    browserAppendingRef.current = false;
+    browserPrependingRef.current = false;
     browserVerseEls.current = {};
     const max = CHAPTER_COUNTS[browserBook] || 1;
     const initial = [browserChapter, browserChapter + 1, browserChapter + 2].filter(c => c >= 1 && c <= max);
@@ -1488,45 +1494,53 @@ export default function App() {
   }
 
   async function browserAppendChapter() {
+    if (browserAppendingRef.current) return;
     const loaded = browserLoadedChaptersRef.current;
     if (loaded.length === 0) return;
-    const max = CHAPTER_COUNTS[browserBook] || 1;
+    const book = browserBookRef.current;
+    const max = CHAPTER_COUNTS[book] || 1;
     const last = Math.max(...loaded);
     if (last >= max) return;
+    browserAppendingRef.current = true;
     const next = last + 1;
     const firstCh = Math.min(...loaded);
-    const { verses, anns, comments } = await browserLoadChapters(browserBook, [next]);
+    const { verses, anns, comments } = await browserLoadChapters(book, [next]);
     setBrowserVerses(prev => [...prev.filter(v => v.chapter !== firstCh), ...verses]);
     setBrowserAnnotations(prev => {
       const kept = {...prev};
-      Object.keys(kept).forEach(k => { if (k.startsWith(`${browserBook}-${firstCh}-`)) delete kept[k]; });
+      Object.keys(kept).forEach(k => { if (k.startsWith(`${book}-${firstCh}-`)) delete kept[k]; });
       return {...kept, ...anns};
     });
-    setBrowserComments(prev => [...prev.filter(c => !c.verse_ref?.startsWith(`${browserBook}-${firstCh}-`)), ...comments]);
+    setBrowserComments(prev => [...prev.filter(c => !c.verse_ref?.startsWith(`${book}-${firstCh}-`)), ...comments]);
     setBrowserChapters([...loaded.slice(1), next]);
+    browserAppendingRef.current = false;
   }
 
   async function browserPrependChapter() {
+    if (browserPrependingRef.current) return;
     const loaded = browserLoadedChaptersRef.current;
     if (loaded.length === 0) return;
+    const book = browserBookRef.current;
     const first = Math.min(...loaded);
     if (first <= 1) return;
+    browserPrependingRef.current = true;
     const prev = first - 1;
     const lastCh = Math.max(...loaded);
-    const { verses, anns, comments } = await browserLoadChapters(browserBook, [prev]);
+    const { verses, anns, comments } = await browserLoadChapters(book, [prev]);
     const scroller = browserScrollRef.current;
     const prevHeight = scroller ? scroller.scrollHeight : 0;
     setBrowserVerses(existing => [...verses, ...existing.filter(v => v.chapter !== lastCh)]);
     setBrowserAnnotations(existing => {
       const kept = {...existing};
-      Object.keys(kept).forEach(k => { if (k.startsWith(`${browserBook}-${lastCh}-`)) delete kept[k]; });
+      Object.keys(kept).forEach(k => { if (k.startsWith(`${book}-${lastCh}-`)) delete kept[k]; });
       return {...anns, ...kept};
     });
-    setBrowserComments(existing => [...comments, ...existing.filter(c => !c.verse_ref?.startsWith(`${browserBook}-${lastCh}-`))]);
+    setBrowserComments(existing => [...comments, ...existing.filter(c => !c.verse_ref?.startsWith(`${book}-${lastCh}-`))]);
     setBrowserChapters([prev, ...loaded.slice(0, -1)]);
     requestAnimationFrame(() => {
       if (scroller) scroller.scrollTop += scroller.scrollHeight - prevHeight;
     });
+    browserPrependingRef.current = false;
   }
 
   function handleBrowserVerseMouseUp(e, verse) {
@@ -2509,15 +2523,15 @@ export default function App() {
 
       {/* VERSION PICKER */}
       {showVersionPicker && (
-        <div style={{position:"fixed",top:"52px",left:"calc(50% - 240px)",background:"var(--parchment)",
+        <div style={{position:"fixed",top:"58px",left:"calc(50% - 240px)",background:"var(--white)",
           border:"1px solid var(--border)",borderRadius:"0 0 8px 0",zIndex:300,
           padding:"12px",minWidth:"140px",boxShadow:"0 4px 12px rgba(0,0,0,0.15)"}}>
           <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
             {VERSIONS.map(v => (
               <button key={v}
-                style={{background:bibleVersion===v?"var(--accent)":"none",
+                style={{background:bibleVersion===v?"var(--gold)":"none",
                   border:"1px solid var(--border)",borderRadius:"5px",cursor:"pointer",
-                  color:"var(--ink)",fontFamily:"Lato",fontSize:"14px",
+                  color: bibleVersion===v ? "var(--ink)" : "var(--ink)",fontFamily:"Lato",fontSize:"14px",
                   fontWeight:"700",padding:"6px 12px"}}
                 onClick={() => { switchVersion(v); setShowVersionPicker(false); }}>
                 {v}
