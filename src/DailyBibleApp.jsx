@@ -511,7 +511,7 @@ const styles = `
     background: var(--accent);
     color: var(--parchment);
     padding: 0 12px;
-    height: 46px;
+    height: 58px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -540,7 +540,7 @@ const styles = `
   .today-chip { font-size:10px; font-family:'Lato',sans-serif; background:var(--gold); color:var(--white); border:none; border-radius:10px; padding:2px 7px; cursor:pointer; font-weight:700; }
 
   /* SPACER — pushes content below fixed header */
-  .header-spacer { height: 46px; flex-shrink:0; }
+  .header-spacer { height: 58px; flex-shrink:0; }
 /* BOTTOM TAB BAR — fixed at bottom */
   .tabs {
     display: flex;
@@ -578,7 +578,7 @@ const styles = `
   /* PASSAGE SCROLL AREA */
   .passage-scroll {
     overflow-y: auto;
-    height: calc(100vh - 46px - 56px - env(safe-area-inset-bottom, 0px));
+    height: calc(100vh - 58px - 56px - env(safe-area-inset-bottom, 0px));
     -webkit-overflow-scrolling: touch;
   }
   .passage-container { padding: 0 0 120px; position:relative; }
@@ -749,7 +749,7 @@ const styles = `
     .app { max-width: 100%; }
     .header { max-width: 100%; left: 0; transform: none; width: 100%; }
     .tabs { max-width: 100%; left: 0; transform: none; width: 100%; }
-    .wide-wrapper { display: flex; flex-direction: column; flex: 1; height: calc(100vh - 46px - calc(56px + env(safe-area-inset-bottom, 0px))); overflow: hidden; }
+    .wide-wrapper { display: flex; flex-direction: column; flex: 1; height: calc(100vh - 58px - calc(56px + env(safe-area-inset-bottom, 0px))); overflow: hidden; }
     /* Single shared scroller */
     .wide-body { display: flex; flex-direction: row; flex: 1; overflow-y: auto; overflow-x: hidden; position: relative; -webkit-overflow-scrolling: touch; }
     /* Text col fills full width, passage-container handles its own right padding */
@@ -1327,26 +1327,31 @@ export default function App() {
   // ── Measure verse offsets for parallel notes column ──────────────────────
   useEffect(() => {
     if (!isWide || passageVerses.length === 0) return;
-    const t = setTimeout(() => {
+    const measure = () => {
       const offsets = {};
       Object.entries(verseEls.current).forEach(([key, el]) => {
         if (el) offsets[key] = el.offsetTop;
       });
       setVerseOffsets(offsets);
-    }, 150);
+    };
+    requestAnimationFrame(measure);
+    const t = setTimeout(measure, 400);
     return () => clearTimeout(t);
   }, [passageVerses, isWide, activeTab, fontSize]);
 
   // ── Measure browser verse offsets ────────────────────────────────────────
   useEffect(() => {
     if (!isWide || browserVerses.length === 0) return;
-    const t = setTimeout(() => {
+    const measure = () => {
       const offsets = {};
       Object.entries(browserVerseEls.current).forEach(([key, el]) => {
         if (el) offsets[key] = el.offsetTop;
       });
       setBrowserVerseOffsets(offsets);
-    }, 150);
+    };
+    // Two passes: quick pass + delayed pass after fonts/layout settle
+    requestAnimationFrame(measure);
+    const t = setTimeout(measure, 400);
     return () => clearTimeout(t);
   }, [browserVerses, isWide, activeTab, fontSize]);
 
@@ -1768,21 +1773,35 @@ export default function App() {
         </div>
         <div className="header-center">
           {activeTab < readings.length && readings[activeTab] ? (() => {
-            /* Portion tabs — show book + chapter indicators */
+            /* Portion tabs — two rows: book/chapter + date nav */
             const parsed = parsePassageRef(readings[activeTab]);
             const bookName = parsed.books[0].book.toUpperCase();
             const allChapters = parsed.books[0].chapters;
             const chapterToShow = visibleChapter ?? (passageVerses[0]?.chapter ?? "");
             return (
-              <div style={{display:"flex", alignItems:"center", gap:"0", flex:1, justifyContent:"center"}}>
-                <span style={{color:"var(--ink)", fontFamily:"'Lato',sans-serif", fontSize:"15px", fontWeight:"900", letterSpacing:"1px", marginRight:"8px"}}>{bookName}</span>
-                {allChapters.length > 1 ? (
-                  allChapters.map(ch => (
-                    <span key={ch} style={{color:"var(--ink)", fontFamily:"'Lato',sans-serif", fontSize:"17px", fontWeight:"700", opacity: ch === chapterToShow ? 1 : 0.35, marginLeft:"6px"}}>{ch}</span>
-                  ))
-                ) : (
-                  <span style={{color:"var(--ink)", fontFamily:"'Lato',sans-serif", fontSize:"17px", fontWeight:"700", marginLeft:"4px"}}>{chapterToShow}</span>
-                )}
+              <div style={{display:"flex", flexDirection:"column", alignItems:"center", gap:"1px", flex:1}}>
+                {/* Row 1: book + chapters */}
+                <div style={{display:"flex", alignItems:"center", gap:"0"}}>
+                  <span style={{color:"var(--ink)", fontFamily:"'Lato',sans-serif", fontSize:"13px", fontWeight:"900", letterSpacing:"1px", marginRight:"6px"}}>{bookName}</span>
+                  {allChapters.length > 1 ? (
+                    allChapters.map(ch => (
+                      <span key={ch} style={{color:"var(--ink)", fontFamily:"'Lato',sans-serif", fontSize:"15px", fontWeight:"700", opacity: ch === chapterToShow ? 1 : 0.35, marginLeft:"5px"}}>{ch}</span>
+                    ))
+                  ) : (
+                    <span style={{color:"var(--ink)", fontFamily:"'Lato',sans-serif", fontSize:"15px", fontWeight:"700"}}>{chapterToShow}</span>
+                  )}
+                </div>
+                {/* Row 2: date nav */}
+                <div style={{display:"flex", alignItems:"center", gap:"4px"}}>
+                  <button className="header-nav-btn" style={{fontSize:"18px", padding:"0 4px"}} onClick={() => goDay(-1)}>‹</button>
+                  <div style={{textAlign:"center"}}>
+                    <span style={{fontFamily:"'Lato',sans-serif", fontSize:"13px", fontWeight:"700", color:"var(--ink)"}}>
+                      {currentDate.toLocaleDateString("en-US",{month:"short",day:"numeric"})}
+                    </span>
+                    {!isToday && <button className="today-chip" style={{marginLeft:"5px"}} onClick={goToday}>Today</button>}
+                  </div>
+                  <button className="header-nav-btn" style={{fontSize:"18px", padding:"0 4px"}} onClick={() => goDay(1)}>›</button>
+                </div>
               </div>
             );
           })() : activeTab === readings.length + 1 ? (
@@ -2168,15 +2187,21 @@ export default function App() {
           ) : (
             /* Continuous scroll chapter view */
             <div className={isWide ? "wide-wrapper" : ""} style={{display:"flex", flexDirection:"column", flex:1, overflow:"hidden"}}>
-              <div className={isWide ? "wide-body" : ""}>
-              <div className={isWide ? "wide-text-col" : "passage-scroll"}
-                ref={browserScrollRef}
-                style={{ paddingBottom: !isWide && panelOpen ? `${panelHeight+5}vh` : "0" }}
-                onScroll={e => {
+              <div className={isWide ? "wide-body" : ""}
+                ref={isWide ? browserScrollRef : null}
+                onScroll={isWide ? (e => {
                   const el = e.currentTarget;
                   if (el.scrollTop < 200) browserPrependChapter();
                   if (el.scrollHeight - el.scrollTop - el.clientHeight < 400) browserAppendChapter();
-                }}>
+                }) : null}>
+              <div className={isWide ? "wide-text-col" : "passage-scroll"}
+                ref={!isWide ? browserScrollRef : null}
+                style={{ paddingBottom: !isWide && panelOpen ? `${panelHeight+5}vh` : "0" }}
+                onScroll={!isWide ? (e => {
+                  const el = e.currentTarget;
+                  if (el.scrollTop < 200) browserPrependChapter();
+                  if (el.scrollHeight - el.scrollTop - el.clientHeight < 400) browserAppendChapter();
+                }) : null}>
                 <div className="passage-container" style={{"--reading-size": fontSize+"px"}}>
                   {searchMatches.size > 0 && (
                     <div className="search-results-label">{searchMatches.size} match{searchMatches.size!==1?"es":""} for "{globalQuery}"</div>
