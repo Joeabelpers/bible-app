@@ -1089,7 +1089,10 @@ export default function App() {
   const checkWide = () => window.innerWidth >= 768 || (window.innerWidth > window.innerHeight && window.innerHeight <= 500);
   const [isWide, setIsWide] = useState(checkWide);
   const [visibleChapter, setVisibleChapter] = useState(null);
-  const [fontSize, setFontSize]         = useState(18);
+  const [fontSize, setFontSize]         = useState(() => {
+    const saved = parseInt(localStorage.getItem("bible-font-size"), 10);
+    return (!isNaN(saved) && saved >= 12 && saved <= 32) ? saved : 18;
+  });
   const [showSettings, setShowSettings] = useState(false);
   const [showVersionPicker, setShowVersionPicker] = useState(false);
 
@@ -1858,7 +1861,7 @@ export default function App() {
         <div className="header-right">
           <button className="header-icon-btn" onClick={() => setShowSettings(true)}
             title="Settings"
-            style={{fontSize:"18px", background:"none", border:"none", cursor:"pointer", padding:"4px 6px"}}>
+            style={{fontSize:"36px", background:"none", border:"none", cursor:"pointer", padding:"2px 6px", lineHeight:1}}>
             ≡
           </button>
         </div>
@@ -2492,8 +2495,8 @@ export default function App() {
             </button>
             <div style={{display:"flex",alignItems:"center",gap:"8px",color:"var(--ink)",fontSize:"14px",fontFamily:"Lato"}}>
               <span>Font</span>
-              <button className="font-size-btn" onClick={() => setFontSize(p => Math.max(MIN_FONT, p-2))} disabled={fontSize<=MIN_FONT}>A-</button>
-              <button className="font-size-btn" onClick={() => setFontSize(p => Math.min(MAX_FONT, p+2))} disabled={fontSize>=MAX_FONT}>A+</button>
+              <button className="font-size-btn" onClick={() => setFontSize(p => { const n = Math.max(MIN_FONT, p-2); localStorage.setItem("bible-font-size", n); return n; })} disabled={fontSize<=MIN_FONT}>A-</button>
+              <button className="font-size-btn" onClick={() => setFontSize(p => { const n = Math.min(MAX_FONT, p+2); localStorage.setItem("bible-font-size", n); return n; })} disabled={fontSize>=MAX_FONT}>A+</button>
             </div>
             <button style={{background:"none",border:"none",cursor:"pointer",
               color:"var(--ink)",fontFamily:"Lato",fontSize:"14px",textAlign:"left",padding:"4px 0"}}
