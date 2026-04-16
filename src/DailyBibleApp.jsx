@@ -511,7 +511,7 @@ const styles = `
     background: var(--accent);
     color: var(--parchment);
     padding: 0 12px;
-    height: 58px;
+    height: 72px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -526,9 +526,9 @@ const styles = `
   .header-title { font-family:'Lato',sans-serif; font-size:20px; font-weight:900; letter-spacing:0.3px; line-height:1.1; text-transform:uppercase; }
   .header-date { display:none; }
   .header-center { display:flex; align-items:center; gap:4px; }
-  .header-nav-btn { background:none; border:none; color:var(--ink); font-size:26px; cursor:pointer; padding:2px 6px; line-height:1; transition:color 0.15s; }
+  .header-nav-btn { background:none; border:none; color:var(--ink); font-size:36px; cursor:pointer; padding:0 6px; line-height:1; transition:color 0.15s; }
   .header-nav-btn:hover { color:var(--gold); }
-  .header-date-display { font-family:'Lato',sans-serif; font-size:21px; font-weight:700; color:var(--ink); min-width:70px; text-align:center; white-space:nowrap; }
+  .header-date-display { font-family:'Lato',sans-serif; font-size:26px; font-weight:700; color:var(--ink); min-width:70px; text-align:center; white-space:nowrap; }
   .header-right { display:flex; align-items:center; gap:5px; min-width:60px; justify-content:flex-end; }
   .header-icon-btn { background:none; border:none; color:var(--ink); cursor:pointer; padding:4px; font-size:20px; line-height:1; border-radius:4px; transition:all 0.15s; }
   .header-icon-btn:hover { color:var(--gold); }
@@ -540,7 +540,7 @@ const styles = `
   .today-chip { font-size:10px; font-family:'Lato',sans-serif; background:var(--gold); color:var(--white); border:none; border-radius:10px; padding:2px 7px; cursor:pointer; font-weight:700; }
 
   /* SPACER — pushes content below fixed header */
-  .header-spacer { height: 58px; flex-shrink:0; }
+  .header-spacer { height: 72px; flex-shrink:0; }
 /* BOTTOM TAB BAR — fixed at bottom */
   .tabs {
     display: flex;
@@ -578,7 +578,7 @@ const styles = `
   /* PASSAGE SCROLL AREA */
   .passage-scroll {
     overflow-y: auto;
-    height: calc(100vh - 58px - 56px - env(safe-area-inset-bottom, 0px));
+    height: calc(100vh - 72px - 56px - env(safe-area-inset-bottom, 0px));
     -webkit-overflow-scrolling: touch;
   }
   .passage-container { padding: 0 0 120px; position:relative; }
@@ -749,7 +749,7 @@ const styles = `
     .app { max-width: 100%; }
     .header { max-width: 100%; left: 0; transform: none; width: 100%; }
     .tabs { max-width: 100%; left: 0; transform: none; width: 100%; }
-    .wide-wrapper { display: flex; flex-direction: column; flex: 1; height: calc(100vh - 58px - calc(56px + env(safe-area-inset-bottom, 0px))); overflow: hidden; }
+    .wide-wrapper { display: flex; flex-direction: column; flex: 1; height: calc(100vh - 72px - calc(56px + env(safe-area-inset-bottom, 0px))); overflow: hidden; }
     /* Single shared scroller */
     .wide-body { display: flex; flex-direction: row; flex: 1; overflow-y: auto; overflow-x: hidden; position: relative; -webkit-overflow-scrolling: touch; }
     /* Text col fills full width, passage-container handles its own right padding */
@@ -1796,28 +1796,28 @@ export default function App() {
             const allChapters = parsed.books[0].chapters;
             const chapterToShow = visibleChapter ?? (passageVerses[0]?.chapter ?? "");
             return (
-              <div style={{display:"flex", flexDirection:"column", alignItems:"center", gap:"1px", flex:1}}>
-                {/* Row 1: book + chapters */}
-                <div style={{display:"flex", alignItems:"center", gap:"0"}}>
-                  <span style={{color:"var(--ink)", fontFamily:"'Lato',sans-serif", fontSize:"13px", fontWeight:"900", letterSpacing:"1px", marginRight:"6px"}}>{bookName}</span>
-                  {allChapters.length > 1 ? (
-                    allChapters.map(ch => (
-                      <span key={ch} style={{color:"var(--ink)", fontFamily:"'Lato',sans-serif", fontSize:"15px", fontWeight:"700", opacity: ch === chapterToShow ? 1 : 0.35, marginLeft:"5px"}}>{ch}</span>
-                    ))
-                  ) : (
-                    <span style={{color:"var(--ink)", fontFamily:"'Lato',sans-serif", fontSize:"15px", fontWeight:"700"}}>{chapterToShow}</span>
-                  )}
-                </div>
-                {/* Row 2: date nav */}
+              <div style={{display:"flex", flexDirection:"column", alignItems:"center", gap:"2px", flex:1}}>
+                {/* Row 1: date nav (big) */}
                 <div style={{display:"flex", alignItems:"center", gap:"4px"}}>
-                  <button className="header-nav-btn" style={{fontSize:"18px", padding:"0 4px"}} onClick={() => goDay(-1)}>‹</button>
+                  <button className="header-nav-btn" onClick={() => goDay(-1)}>‹</button>
                   <div style={{textAlign:"center"}}>
-                    <span style={{fontFamily:"'Lato',sans-serif", fontSize:"13px", fontWeight:"700", color:"var(--ink)"}}>
+                    <span style={{fontFamily:"'Lato',sans-serif", fontSize:"26px", fontWeight:"700", color:"var(--ink)", whiteSpace:"nowrap"}}>
                       {currentDate.toLocaleDateString("en-US",{month:"short",day:"numeric"})}
                     </span>
-                    {!isToday && <button className="today-chip" style={{marginLeft:"5px"}} onClick={goToday}>Today</button>}
+                    {!isToday && <button className="today-chip" style={{marginLeft:"6px"}} onClick={goToday}>Today</button>}
                   </div>
-                  <button className="header-nav-btn" style={{fontSize:"18px", padding:"0 4px"}} onClick={() => goDay(1)}>›</button>
+                  <button className="header-nav-btn" onClick={() => goDay(1)}>›</button>
+                </div>
+                {/* Row 2: book + chapters (small, below) */}
+                <div style={{display:"flex", alignItems:"center", gap:"0"}}>
+                  <span style={{color:"var(--ink)", fontFamily:"'Lato',sans-serif", fontSize:"11px", fontWeight:"900", letterSpacing:"1px", marginRight:"5px", opacity:0.75}}>{bookName}</span>
+                  {allChapters.length > 1 ? (
+                    allChapters.map(ch => (
+                      <span key={ch} style={{color:"var(--ink)", fontFamily:"'Lato',sans-serif", fontSize:"12px", fontWeight:"700", opacity: ch === chapterToShow ? 0.85 : 0.3, marginLeft:"4px"}}>{ch}</span>
+                    ))
+                  ) : (
+                    <span style={{color:"var(--ink)", fontFamily:"'Lato',sans-serif", fontSize:"12px", fontWeight:"700", opacity:0.85}}>{chapterToShow}</span>
+                  )}
                 </div>
               </div>
             );
@@ -2484,7 +2484,7 @@ export default function App() {
 
       {/* SETTINGS MENU */}
       {showSettings && (
-        <div style={{position:"fixed",top:"52px",right:"calc(50% - 240px)",background:"var(--parchment)",
+        <div style={{position:"fixed",top:"72px",right:"calc(50% - 240px)",background:"var(--parchment)",
           border:"1px solid var(--border)",borderRadius:"0 0 0 8px",zIndex:300,
           padding:"12px",minWidth:"200px",boxShadow:"0 4px 12px rgba(0,0,0,0.15)"}}>
           <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
@@ -2526,7 +2526,7 @@ export default function App() {
 
       {/* VERSION PICKER */}
       {showVersionPicker && (
-        <div style={{position:"fixed",top:"58px",left:"calc(50% - 240px)",background:"var(--white)",
+        <div style={{position:"fixed",top:"72px",left:"calc(50% - 240px)",background:"var(--white)",
           border:"1px solid var(--border)",borderRadius:"0 0 8px 0",zIndex:300,
           padding:"12px",minWidth:"140px",boxShadow:"0 4px 12px rgba(0,0,0,0.15)"}}>
           <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
