@@ -1001,11 +1001,18 @@ const styles = `
 const BOOK_ALIASES = {
   "1 chron.": "1 Chronicles", "2 chron.": "2 Chronicles",
   "rev": "Revelation", "psalm": "Psalms",
+  "song of solomon": "Song of Solomon",
+  "song of songs": "Song of Solomon",
 };
 function normaliseBookName(raw) {
   const lower = raw.trim().toLowerCase();
   if (BOOK_ALIASES[lower]) return BOOK_ALIASES[lower];
-  return raw.trim().replace(/\b\w/g, c => c.toUpperCase());
+  // Preserve lowercase connectors so "Song of Solomon" doesn't become "Song Of Solomon"
+  const LOWER_WORDS = new Set(["of", "the", "and"]);
+  return raw.trim().replace(/\b\w+/g, (word, offset) => {
+    if (offset > 0 && LOWER_WORDS.has(word.toLowerCase())) return word.toLowerCase();
+    return word.charAt(0).toUpperCase() + word.slice(1);
+  });
 }
 
 // ─── PARSE PASSAGE REFERENCE ─────────────────────────────────────────────────
