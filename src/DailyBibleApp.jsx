@@ -1,12 +1,8 @@
 /* eslint-disable */
 import { useState, useEffect, useRef, useCallback } from "react";
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-import ScribePage from "./ScribePage";
+import { supabase } from "./supabaseClient";
 
-// ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
-const SUPABASE_URL = "https://mxlpyaebssriqdubjeiu.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im14bHB5YWVic3NyaXFkdWJqZWl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzOTg5NTQsImV4cCI6MjA4OTk3NDk1NH0.BPz_CWlbEyIQIx63TwPcPYDJcCXteydA3wkTFIlQqYo";
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Supabase client lives in ./supabaseClient.js and is shared with the study page.
 
 // ─── ROBERTS READING PLAN (all 365 days) ─────────────────────────────────────
 // Format: [month][day] = [reading1, reading2, reading3]
@@ -1103,7 +1099,6 @@ export default function App() {
   });
   const [showSettings, setShowSettings] = useState(false);
   const [showVersionPicker, setShowVersionPicker] = useState(false);
-  const [scribeOpen, setScribeOpen] = useState(false);
 
   // Panel state
   const [panelOpen, setPanelOpen]       = useState(false);
@@ -2489,28 +2484,29 @@ export default function App() {
       )}
 
       {/* TOAST */}
-      {scribeOpen && (
-        <ScribePage
-          supabase={supabase}
-          user={user}
-          initialBook={parsePassageRef(readings[activeTab] || "1 John 1").books[0].book}
-          initialChapter={parsePassageRef(readings[activeTab] || "1 John 1").books[0].chapters[0] || 1}
-          onExit={() => setScribeOpen(false)}
-        />
-      )}
-
-      {!scribeOpen && (
-        <button
-          aria-label="Open study page"
-          onClick={() => setScribeOpen(true)}
-          style={{
-            position: "fixed", right: 20, bottom: 84, zIndex: 40,
-            width: 52, height: 52, borderRadius: "50%", border: "none",
-            background: "#C1663B", color: "#fff", fontSize: 22, cursor: "pointer",
-            boxShadow: "0 3px 12px rgba(0,0,0,.3)", lineHeight: 1,
-          }}
-        >&#9998;</button>
-      )}
+      {/* Link across to the study page (separate app, own interface) */}
+      <button
+        aria-label="Open study page"
+        onClick={() => {
+          try {
+            const ref = parsePassageRef(readings[activeTab] || "");
+            const first = ref?.books?.[0];
+            if (first?.book) {
+              localStorage.setItem("scribe-pos", JSON.stringify({
+                book: first.book,
+                chapter: first.chapters?.[0] || 1,
+              }));
+            }
+          } catch {}
+          window.location.hash = "#/study";
+        }}
+        style={{
+          position: "fixed", right: 20, bottom: 84, zIndex: 40,
+          width: 52, height: 52, borderRadius: "50%", border: "none",
+          background: "#C1663B", color: "#fff", fontSize: 22, cursor: "pointer",
+          boxShadow: "0 3px 12px rgba(0,0,0,.3)", lineHeight: 1,
+        }}
+      >&#9998;</button>
 
       {toast && <div className="toast">{toast}</div>}
 
