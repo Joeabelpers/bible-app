@@ -580,13 +580,13 @@ export default function ScribePage({
   const [pageIdx, setPageIdx] = useState(0);
   const [fitScale, setFitScale] = useState(0.5);
   const [railMode, setRailMode] = useState(true);
-  const scale = fitScale * zoom;
   const [picker, setPicker] = useState(false);
   const [palette, setPalette] = useState(false);
 
   const [tool, setTool] = useState("pen");
   const [hlColour, setHlColour] = useState(0);
   const [zoom, setZoom] = useState(1);
+  const scale = fitScale * zoom;   // must come after zoom: const has no hoisting
   const [eraseMode, setEraseMode] = useState("touch");   // touch | circle | rect
   const [colour, setColour] = useState(0);
   const [width, setWidth] = useState(1);
