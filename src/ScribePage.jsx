@@ -170,22 +170,29 @@ function tokenize(text) {
 // ─────────────────────────────────────────────────────────────────────────────
 // INK LAYER — one transparent canvas over the whole page
 // ─────────────────────────────────────────────────────────────────────────────
-function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour, width, inkColour, onWordHit, onSwipe, onPan }) {
-  const canvasRef = useRef(null);
+function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour,
+                    width, inkColour, onWordHit, onSwipe, onPan }) {
+  const canvasRef  = useRef(null);
+  const cacheRef   = useRef(null);
   const strokesRef = useRef([]);
   const historyRef = useRef([]);
   const drawingRef = useRef(null);
-  const saveTimer = useRef(null);
-  const swipeRef = useRef(null);
-  const [overlay, setOverlay] = useState(null);   // live eraser shape
+  const gestureRef = useRef(null);
+  const saveTimer  = useRef(null);
+  const syncTimer  = useRef(null);
+  const dirtyRef   = useRef(false);
+  const [overlay, setOverlay] = useState(null);
   const [, force] = useState(0);
 
-  const ctx = () => canvasRef.current?.getContext("2d");
-  const cacheRef = useRef(null);
+  // Native listeners are bound once, so everything mutable they need is read
+  // through this ref rather than captured in a closure.
+  const cfg = useRef(null);
+  cfg.current = { pageKey, supabase, user, tool, eraseMode, colour, hlColour,
+                  width, inkColour, onWordHit, onSwipe, onPan };
 
-  // Committed strokes live on an offscreen canvas. Adding a stroke costs one
-  // draw plus one blit, instead of re-stroking the whole page every time —
-  // that full repaint is what made fast printing drop letters.
+  // ─── canvas plumbing ───────────────────────────────────────────────────
+  const ctx = () => canvasRef.current?.getContext("2d");
+
   function cache() {
     if (!cacheRef.current) {
       const el = document.createElement("canvas");
@@ -201,6 +208,12 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour, 
     c.lineCap = "round"; c.lineJoin = "round";
     return c;
   }
+  function live() {
+    const c = ctx();
+    c.setTransform(RASTER, 0, 0, RASTER, 0, 0);
+    c.lineCap = "round"; c.lineJoin = "round";
+    return c;
+  }
   function blit() {
     const c = ctx(); if (!c) return;
     c.setTransform(1, 0, 0, 1, 0, 0);
@@ -208,23 +221,9 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour, 
     c.drawImage(cache(), 0, 0);
   }
 
-  const redraw = useCallback(() => {
-    const c = cctx();
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    c.clearRect(0, 0, PAGE_W * RASTER, PAGE_H * RASTER);
-    c.setTransform(RASTER, 0, 0, RASTER, 0, 0);
-    c.lineCap = "round"; c.lineJoin = "round";
-    // highlighter first so ink always sits on top of it
-    const ordered = [...strokesRef.current].sort((a, b) => (a.h ? 0 : 1) - (b.h ? 0 : 1));
-    for (const st of ordered) drawStroke(c, st);
-    blit();
-    // inkColour must be a dependency: colour 0 follows the theme, and a stale
-    // closure here repaints every theme-ink stroke in the old colour.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inkColour]);
-
   function drawStroke(c, s) {
     const pts = s.p;
+    if (!pts || !pts.length) return;
 
     if (s.h) {                                   // highlighter: flat, translucent
       c.save();
@@ -232,7 +231,6 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour, 
       c.globalCompositeOperation = "multiply";
       c.strokeStyle = HL_COLOURS[s.c] || HL_COLOURS[0];
       c.lineWidth = s.w;
-      c.lineCap = "round"; c.lineJoin = "round";
       c.beginPath();
       c.moveTo(pts[0][0], pts[0][1]);
       if (pts.length === 1) c.lineTo(pts[0][0] + 0.01, pts[0][1]);
@@ -247,7 +245,7 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour, 
       return;
     }
 
-    c.strokeStyle = PEN_COLOURS[s.c] || inkColour;
+    c.strokeStyle = PEN_COLOURS[s.c] || cfg.current.inkColour;
     if (pts.length === 1) {
       c.fillStyle = c.strokeStyle;
       c.beginPath();
@@ -262,14 +260,55 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour, 
     }
   }
 
-  // ── load: local first, then reconcile with the server ────────────────────
+  // Full rebuild of the offscreen cache. Only for load, erase, undo, theme.
+  function rebuild() {
+    const c = cctx();
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, PAGE_W * RASTER, PAGE_H * RASTER);
+    c.setTransform(RASTER, 0, 0, RASTER, 0, 0);
+    c.lineCap = "round"; c.lineJoin = "round";
+    const ordered = [...strokesRef.current].sort((x, y) => (x.h ? 0 : 1) - (y.h ? 0 : 1));
+    for (const st of ordered) drawStroke(c, st);
+    blit();
+  }
+  const redraw = useCallback(rebuild, []);
+  useEffect(() => { rebuild(); }, [inkColour]);   // eslint-disable-line
+
+  // ─── saving ────────────────────────────────────────────────────────────
+  async function writeLocal() {
+    if (!dirtyRef.current) return;
+    dirtyRef.current = false;
+    const { pageKey: key, supabase: sb, user: u } = cfg.current;
+    const payload = {
+      strokes: strokesRef.current,
+      updated_at: new Date().toISOString(),
+      dirty: true,
+      meta: pageKeyMeta(key),
+    };
+    try { await idbSet(key, payload); } catch {}
+    clearTimeout(syncTimer.current);
+    syncTimer.current = setTimeout(() => syncOne(key, payload, sb, u), 2500);
+  }
+  function persist() {
+    dirtyRef.current = true;
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(writeLocal, 700);
+  }
+  function flush() {
+    clearTimeout(saveTimer.current);
+    if (dirtyRef.current) writeLocal();
+    const { pageKey: key, supabase: sb, user: u } = cfg.current;
+    idbGet(key).then(v => { if (v?.dirty) syncOne(key, v, sb, u); }).catch(() => {});
+  }
+
+  // ─── load ──────────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
-    strokesRef.current = []; historyRef.current = []; redraw();
+    strokesRef.current = []; historyRef.current = []; rebuild();
     (async () => {
       let local = null;
       try { local = await idbGet(pageKey); } catch {}
-      if (!cancelled && local?.strokes) { strokesRef.current = local.strokes; redraw(); }
+      if (!cancelled && local?.strokes) { strokesRef.current = local.strokes; rebuild(); }
       if (!user) return;
       const { data } = await supabase
         .from("ink_pages").select("stroke_data, updated_at")
@@ -278,7 +317,7 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour, 
       const remoteNewer = !local || new Date(data.updated_at) > new Date(local.updated_at || 0);
       if (remoteNewer && !local?.dirty) {
         strokesRef.current = data.stroke_data || [];
-        redraw();
+        rebuild();
         idbSet(pageKey, { strokes: strokesRef.current, updated_at: data.updated_at, dirty: false });
       }
     })();
@@ -286,37 +325,6 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageKey, user?.id]);
 
-  // ── save ─────────────────────────────────────────────────────────────────
-  const dirtyRef = useRef(false);
-  const syncTimer = useRef(null);
-
-  async function writeLocal() {
-    if (!dirtyRef.current) return;
-    dirtyRef.current = false;
-    const payload = {
-      strokes: strokesRef.current,
-      updated_at: new Date().toISOString(),
-      dirty: true,
-      meta: pageKeyMeta(pageKey),
-    };
-    try { await idbSet(pageKey, payload); } catch {}
-    clearTimeout(syncTimer.current);
-    syncTimer.current = setTimeout(() => syncOne(pageKey, payload, supabase, user), 2500);
-  }
-
-  // Serialising the whole page on every stroke was the other stall. Coalesce.
-  const persist = useCallback(() => {
-    dirtyRef.current = true;
-    clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(writeLocal, 700);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageKey, supabase, user?.id]);
-
-  function flush() {
-    clearTimeout(saveTimer.current);
-    if (dirtyRef.current) writeLocal();
-    idbGet(pageKey).then(v => { if (v?.dirty) syncOne(pageKey, v, supabase, user); }).catch(() => {});
-  }
   useEffect(() => {
     const h = () => flush();
     document.addEventListener("visibilitychange", h);
@@ -325,156 +333,17 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour, 
       document.removeEventListener("visibilitychange", h);
       window.removeEventListener("pagehide", h);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageKey]);
+  }, []);
 
-  // ── input ────────────────────────────────────────────────────────────────
-  function toPage(e) {
-    const r = canvasRef.current.getBoundingClientRect();
-    return [
-      ((e.clientX - r.left) / r.width) * PAGE_W,
-      ((e.clientY - r.top) / r.height) * PAGE_H,
-    ];
-  }
-
-  function onPointerDown(e) {
-    const isPen = e.pointerType === "pen" || e.pointerType === "mouse";
-
-    // A touch that arrives mid-stroke is a palm. Ignore it completely.
-    if (!isPen && drawingRef.current) return;
-
-    // Word tapping: finger anywhere, or the pen while the link tool is active.
-    if (!isPen || tool === "link") {
-      const hit = findWord(e.clientX, e.clientY);
-      if (hit) { onWordHit(hit, tool === "link"); return; }
-      if (!isPen) {
-        canvasRef.current.setPointerCapture(e.pointerId);
-        swipeRef.current = { id: e.pointerId, x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY };
-        return;
-      }
-      return;
-    }
-    if (tool === "link") return;
-
-    e.preventDefault();
-    swipeRef.current = null;          // drop any pending palm/finger gesture
-    canvasRef.current.setPointerCapture(e.pointerId);
-    const [x, y] = toPage(e);
-    const pr = e.pressure > 0 ? e.pressure : 0.5;
-
-    if (tool === "eraser") {
-      /* eslint-disable-next-line no-unused-expressions */
-      if (eraseMode === "rect") {
-        drawingRef.current = { rect: true, x0: x, y0: y, x1: x, y1: y };
-        setOverlay({ type: "rect", x0: x, y0: y, x1: x, y1: y });
-      } else {
-        const r = eraseMode === "circle" ? ERASER_R[width] : 8;
-        erase(x, y, r);
-        drawingRef.current = { erasing: true };
-        if (eraseMode === "circle") setOverlay({ type: "circle", x, y, r });
-      }
-      return;
-    }
-
-    historyRef.current.push(strokesRef.current);
-    if (historyRef.current.length > 40) historyRef.current.shift();
-    drawingRef.current = tool === "highlighter"
-      ? { c: hlColour, w: HL_WIDTHS[width], h: 1, p: [[x, y, pr]] }
-      : { c: colour, w: PEN_WIDTHS[width], p: [[x, y, pr]] };
-  }
-
-  function onPointerMove(e) {
-    // finger drag: pan when zoomed in, otherwise it becomes a page swipe.
-    // Scoped to the pointer that began it, so a palm can't hijack the pen.
-    const sw = swipeRef.current;
-    if (sw && sw.id === e.pointerId) {
-      if (onPan) { onPan(e.clientX - sw.x, e.clientY - sw.y); sw.x = e.clientX; sw.y = e.clientY; }
-      return;
-    }
-    const d = drawingRef.current; if (!d) return;
-    e.preventDefault();
-    const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
-    if (d.rect) {
-      const [x, y] = toPage(e);
-      d.x1 = x; d.y1 = y;
-      setOverlay({ type: "rect", x0: d.x0, y0: d.y0, x1: x, y1: y });
-      return;
-    }
-    if (d.erasing) {
-      const r = eraseMode === "circle" ? ERASER_R[width] : 8;
-      for (const ev of events) { const [x, y] = toPage(ev); erase(x, y, r); }
-      if (eraseMode === "circle") { const [x, y] = toPage(e); setOverlay({ type: "circle", x, y, r }); }
-      return;
-    }
-    if (d.h) {
-      for (const ev of events) {
-        const [x, y] = toPage(ev);
-        const a = d.p[d.p.length - 1];
-        if (Math.hypot(x - a[0], y - a[1]) < 1.2) continue;
-        d.p.push([x, y, 1]);
-      }
-      blit();
-      const c2 = ctx();
-      c2.setTransform(RASTER, 0, 0, RASTER, 0, 0);
-      c2.lineCap = "round"; c2.lineJoin = "round";
-      drawStroke(c2, d);
-      return;
-    }
-
-    const c = ctx();
-    c.setTransform(RASTER, 0, 0, RASTER, 0, 0);
-    c.lineCap = "round"; c.lineJoin = "round";
-    c.strokeStyle = PEN_COLOURS[d.c] || inkColour;
-    for (const ev of events) {
-      const [x, y] = toPage(ev);
-      const pr = ev.pressure > 0 ? ev.pressure : 0.5;
-      const a = d.p[d.p.length - 1];
-      if (Math.hypot(x - a[0], y - a[1]) < 0.3) continue;
-      c.lineWidth = d.w * (0.35 + 0.65 * ((a[2] + pr) / 2));
-      c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(x, y); c.stroke();
-      d.p.push([x, y, pr]);
-    }
-  }
-
-  function onPointerUp(e) {
-    if (swipeRef.current && swipeRef.current.id === e.pointerId) {
-      const { sx, sy } = swipeRef.current;
-      swipeRef.current = null;
-      if (onPan) return;                       // zoomed: that drag was a pan
-      const dx = e.clientX - sx;
-      const dy = Math.abs(e.clientY - sy);
-      if (Math.abs(dx) > 90 && dy < 70) onSwipe(dx < 0 ? 1 : -1);
-      return;
-    }
-    const d = drawingRef.current; if (!d) return;
-    drawingRef.current = null;
-    if (d.rect) { eraseRect(d.x0, d.y0, d.x1, d.y1); setOverlay(null); persist(); return; }
-    if (d.erasing) { setOverlay(null); persist(); return; }
-    const finished = d.h
-      ? { c: d.c, w: d.w, h: 1, p: compress(d.p) }
-      : { c: d.c, w: d.w, p: compress(d.p) };
-    strokesRef.current = [...strokesRef.current, finished];
-    if (d.h) {
-      redraw();                 // highlighter must be re-laid beneath the ink
-    } else {
-      drawStroke(cctx(), finished);
-      blit();
-    }
-    persist();
-  }
-
-  // Touch/circle: any stroke the cursor grazes is removed whole.
-  function erase(x, y, R = 8) {
+  // ─── erasing ───────────────────────────────────────────────────────────
+  function erase(x, y, R) {
     const keep = strokesRef.current.filter(s => !s.p.some(p => Math.hypot(p[0] - x, p[1] - y) < R));
     if (keep.length !== strokesRef.current.length) {
       historyRef.current.push(strokesRef.current);
       strokesRef.current = keep;
-      redraw();
+      rebuild();
     }
   }
-
-  // Box: only strokes lying entirely inside the drawn rectangle are removed,
-  // so a long stroke passing through the box survives.
   function eraseRect(ax, ay, bx, by) {
     const x0 = Math.min(ax, bx), x1 = Math.max(ax, bx);
     const y0 = Math.min(ay, by), y1 = Math.max(ay, by);
@@ -484,31 +353,189 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour, 
     if (keep.length !== strokesRef.current.length) {
       historyRef.current.push(strokesRef.current);
       strokesRef.current = keep;
-      redraw();
-      force(n => n + 1);
+      rebuild();
     }
   }
 
-  // expose undo / clear to the toolbar
+  // ─── input: native listeners, bound once ───────────────────────────────
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+
+    const toPage = (ev) => {
+      const r = el.getBoundingClientRect();
+      return [
+        ((ev.clientX - r.left) / r.width) * PAGE_W,
+        ((ev.clientY - r.top) / r.height) * PAGE_H,
+      ];
+    };
+
+    function down(e) {
+      const k = cfg.current;
+      const isPen = e.pointerType === "pen" || e.pointerType === "mouse";
+
+      if (!isPen && drawingRef.current) return;          // palm during a stroke
+
+      if (!isPen || k.tool === "link") {
+        const hit = findWord(e.clientX, e.clientY);
+        if (hit) { k.onWordHit(hit, k.tool === "link"); return; }
+        if (!isPen) {
+          gestureRef.current = { id: e.pointerId, x: e.clientX, y: e.clientY,
+                                 sx: e.clientX, sy: e.clientY };
+          el.setPointerCapture(e.pointerId);
+        }
+        return;
+      }
+
+      e.preventDefault();
+      gestureRef.current = null;
+
+      // Any stroke still open (a lost pointerup) is committed before starting
+      // a new one — this is what was swallowing every other quick stroke.
+      if (drawingRef.current) commit();
+
+      el.setPointerCapture(e.pointerId);
+      const [x, y] = toPage(e);
+      const pr = e.pressure > 0 ? e.pressure : 0.5;
+
+      if (k.tool === "eraser") {
+        if (k.eraseMode === "rect") {
+          drawingRef.current = { id: e.pointerId, rect: true, x0: x, y0: y, x1: x, y1: y };
+          setOverlay({ type: "rect", x0: x, y0: y, x1: x, y1: y });
+        } else {
+          const r = k.eraseMode === "circle" ? ERASER_R[k.width] : 8;
+          erase(x, y, r);
+          drawingRef.current = { id: e.pointerId, erasing: true };
+          if (k.eraseMode === "circle") setOverlay({ type: "circle", x, y, r });
+        }
+        return;
+      }
+
+      historyRef.current.push(strokesRef.current);
+      if (historyRef.current.length > 40) historyRef.current.shift();
+      drawingRef.current = k.tool === "highlighter"
+        ? { id: e.pointerId, c: k.hlColour, w: HL_WIDTHS[k.width], h: 1, p: [[x, y, pr]] }
+        : { id: e.pointerId, c: k.colour, w: PEN_WIDTHS[k.width], p: [[x, y, pr]] };
+    }
+
+    function move(e) {
+      const k = cfg.current;
+
+      const g = gestureRef.current;
+      if (g && g.id === e.pointerId) {
+        if (k.onPan) { k.onPan(e.clientX - g.x, e.clientY - g.y); g.x = e.clientX; g.y = e.clientY; }
+        return;
+      }
+
+      const d = drawingRef.current;
+      if (!d || d.id !== e.pointerId) return;
+      e.preventDefault();
+
+      // Real coalesced events: the full pen sample stream between frames.
+      const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+
+      if (d.rect) {
+        const [x, y] = toPage(e);
+        d.x1 = x; d.y1 = y;
+        setOverlay({ type: "rect", x0: d.x0, y0: d.y0, x1: x, y1: y });
+        return;
+      }
+      if (d.erasing) {
+        const r = k.eraseMode === "circle" ? ERASER_R[k.width] : 8;
+        for (const ev of evs) { const [x, y] = toPage(ev); erase(x, y, r); }
+        if (k.eraseMode === "circle") { const [x, y] = toPage(e); setOverlay({ type: "circle", x, y, r }); }
+        return;
+      }
+      if (d.h) {
+        for (const ev of evs) {
+          const [x, y] = toPage(ev);
+          const a = d.p[d.p.length - 1];
+          if (Math.hypot(x - a[0], y - a[1]) < 1.2) continue;
+          d.p.push([x, y, 1]);
+        }
+        blit();
+        drawStroke(live(), d);
+        return;
+      }
+
+      const c = live();
+      c.strokeStyle = PEN_COLOURS[d.c] || k.inkColour;
+      for (const ev of evs) {
+        const [x, y] = toPage(ev);
+        const pr = ev.pressure > 0 ? ev.pressure : 0.5;
+        const a = d.p[d.p.length - 1];
+        if (Math.hypot(x - a[0], y - a[1]) < 0.3) continue;
+        c.lineWidth = d.w * (0.35 + 0.65 * ((a[2] + pr) / 2));
+        c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(x, y); c.stroke();
+        d.p.push([x, y, pr]);
+      }
+    }
+
+    // Commits whatever stroke is open. Safe to call more than once.
+    function commit() {
+      const d = drawingRef.current;
+      if (!d) return;
+      drawingRef.current = null;
+
+      if (d.rect) { eraseRect(d.x0, d.y0, d.x1, d.y1); setOverlay(null); persist(); return; }
+      if (d.erasing) { setOverlay(null); persist(); return; }
+
+      const finished = d.h
+        ? { c: d.c, w: d.w, h: 1, p: compress(d.p) }
+        : { c: d.c, w: d.w, p: compress(d.p) };
+      strokesRef.current = [...strokesRef.current, finished];
+      if (d.h) rebuild();                 // highlighter must sit beneath the ink
+      else { drawStroke(cctx(), finished); blit(); }
+      persist();
+    }
+
+    function up(e) {
+      const g = gestureRef.current;
+      if (g && g.id === e.pointerId) {
+        gestureRef.current = null;
+        if (cfg.current.onPan) return;                 // zoomed: that was a pan
+        const dx = e.clientX - g.sx;
+        const dy = Math.abs(e.clientY - g.sy);
+        if (Math.abs(dx) > 90 && dy < 70) cfg.current.onSwipe(dx < 0 ? 1 : -1);
+        return;
+      }
+      const d = drawingRef.current;
+      if (!d || d.id !== e.pointerId) return;
+      commit();
+    }
+
+    el.addEventListener("pointerdown", down, { passive: false });
+    el.addEventListener("pointermove", move, { passive: false });
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up);
+    el.addEventListener("lostpointercapture", up);
+    return () => {
+      el.removeEventListener("pointerdown", down);
+      el.removeEventListener("pointermove", move);
+      el.removeEventListener("pointerup", up);
+      el.removeEventListener("pointercancel", up);
+      el.removeEventListener("lostpointercapture", up);
+    };
+  }, []);
+
+  // ─── toolbar hooks ─────────────────────────────────────────────────────
   useEffect(() => {
     const api = {
       undo: () => {
         if (!historyRef.current.length) return;
         strokesRef.current = historyRef.current.pop();
-        redraw(); persist(); force(n => n + 1);
+        rebuild(); persist(); force(n => n + 1);
       },
       clear: () => {
         historyRef.current.push(strokesRef.current);
-        strokesRef.current = []; redraw(); persist(); force(n => n + 1);
+        strokesRef.current = []; rebuild(); persist(); force(n => n + 1);
       },
       count: () => strokesRef.current.length,
     };
     window.__scribeInk = api;
-    window.__scribeSync = (k, v) => syncOne(k, v, supabase, user);
+    window.__scribeSync = (k, v) => syncOne(k, v, cfg.current.supabase, cfg.current.user);
     return () => { if (window.__scribeInk === api) delete window.__scribeInk; };
-  }, [redraw, persist]);
-
-  useEffect(() => { redraw(); }, [redraw, inkColour]);
+  }, []);
 
   return (
     <>
@@ -531,13 +558,10 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour, 
       ref={canvasRef}
       width={PAGE_W * RASTER}
       height={PAGE_H * RASTER}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
       style={{
         position: "absolute", inset: 0, width: PAGE_W, height: PAGE_H,
-        touchAction: "none", zIndex: 3, cursor: tool === "link" ? "pointer" : "crosshair",
+        touchAction: "none", zIndex: 3,
+        cursor: tool === "link" ? "pointer" : "crosshair",
       }}
     />
     </>
