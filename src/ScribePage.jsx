@@ -181,16 +181,43 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour, 
   const [, force] = useState(0);
 
   const ctx = () => canvasRef.current?.getContext("2d");
+  const cacheRef = useRef(null);
 
-  const redraw = useCallback(() => {
+  // Committed strokes live on an offscreen canvas. Adding a stroke costs one
+  // draw plus one blit, instead of re-stroking the whole page every time —
+  // that full repaint is what made fast printing drop letters.
+  function cache() {
+    if (!cacheRef.current) {
+      const el = document.createElement("canvas");
+      el.width = PAGE_W * RASTER;
+      el.height = PAGE_H * RASTER;
+      cacheRef.current = el;
+    }
+    return cacheRef.current;
+  }
+  function cctx() {
+    const c = cache().getContext("2d");
+    c.setTransform(RASTER, 0, 0, RASTER, 0, 0);
+    c.lineCap = "round"; c.lineJoin = "round";
+    return c;
+  }
+  function blit() {
     const c = ctx(); if (!c) return;
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.clearRect(0, 0, PAGE_W * RASTER, PAGE_H * RASTER);
-    c.scale(RASTER, RASTER);
+    c.drawImage(cache(), 0, 0);
+  }
+
+  const redraw = useCallback(() => {
+    const c = cctx();
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, PAGE_W * RASTER, PAGE_H * RASTER);
+    c.setTransform(RASTER, 0, 0, RASTER, 0, 0);
     c.lineCap = "round"; c.lineJoin = "round";
     // highlighter first so ink always sits on top of it
     const ordered = [...strokesRef.current].sort((a, b) => (a.h ? 0 : 1) - (b.h ? 0 : 1));
-    for (const s of ordered) drawStroke(c, s);
+    for (const st of ordered) drawStroke(c, st);
+    blit();
     // inkColour must be a dependency: colour 0 follows the theme, and a stale
     // closure here repaints every theme-ink stroke in the old colour.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -260,7 +287,12 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour, 
   }, [pageKey, user?.id]);
 
   // ── save ─────────────────────────────────────────────────────────────────
-  const persist = useCallback(async () => {
+  const dirtyRef = useRef(false);
+  const syncTimer = useRef(null);
+
+  async function writeLocal() {
+    if (!dirtyRef.current) return;
+    dirtyRef.current = false;
     const payload = {
       strokes: strokesRef.current,
       updated_at: new Date().toISOString(),
@@ -268,12 +300,21 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour, 
       meta: pageKeyMeta(pageKey),
     };
     try { await idbSet(pageKey, payload); } catch {}
+    clearTimeout(syncTimer.current);
+    syncTimer.current = setTimeout(() => syncOne(pageKey, payload, supabase, user), 2500);
+  }
+
+  // Serialising the whole page on every stroke was the other stall. Coalesce.
+  const persist = useCallback(() => {
+    dirtyRef.current = true;
     clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => syncOne(pageKey, payload, supabase, user), 3000);
+    saveTimer.current = setTimeout(writeLocal, 700);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageKey, supabase, user?.id]);
 
   function flush() {
     clearTimeout(saveTimer.current);
+    if (dirtyRef.current) writeLocal();
     idbGet(pageKey).then(v => { if (v?.dirty) syncOne(pageKey, v, supabase, user); }).catch(() => {});
   }
   useEffect(() => {
@@ -340,7 +381,6 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour, 
     drawingRef.current = tool === "highlighter"
       ? { c: hlColour, w: HL_WIDTHS[width], h: 1, p: [[x, y, pr]] }
       : { c: colour, w: PEN_WIDTHS[width], p: [[x, y, pr]] };
-    force(n => n + 1);
   }
 
   function onPointerMove(e) {
@@ -373,9 +413,10 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour, 
         if (Math.hypot(x - a[0], y - a[1]) < 1.2) continue;
         d.p.push([x, y, 1]);
       }
-      redraw();
+      blit();
       const c2 = ctx();
       c2.setTransform(RASTER, 0, 0, RASTER, 0, 0);
+      c2.lineCap = "round"; c2.lineJoin = "round";
       drawStroke(c2, d);
       return;
     }
@@ -409,11 +450,17 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour, 
     drawingRef.current = null;
     if (d.rect) { eraseRect(d.x0, d.y0, d.x1, d.y1); setOverlay(null); persist(); return; }
     if (d.erasing) { setOverlay(null); persist(); return; }
-    strokesRef.current = [...strokesRef.current,
-      d.h ? { c: d.c, w: d.w, h: 1, p: compress(d.p) } : { c: d.c, w: d.w, p: compress(d.p) }];
-    redraw();
+    const finished = d.h
+      ? { c: d.c, w: d.w, h: 1, p: compress(d.p) }
+      : { c: d.c, w: d.w, p: compress(d.p) };
+    strokesRef.current = [...strokesRef.current, finished];
+    if (d.h) {
+      redraw();                 // highlighter must be re-laid beneath the ink
+    } else {
+      drawStroke(cctx(), finished);
+      blit();
+    }
     persist();
-    force(n => n + 1);
   }
 
   // Touch/circle: any stroke the cursor grazes is removed whole.
