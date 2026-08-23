@@ -16,7 +16,7 @@ import defaultClient from "./supabaseClient";
 // ─── PAGE GEOMETRY (A4 portrait at 150 units/inch) ───────────────────────────
 // Everything inside the page is measured in these units and the whole page is
 // scaled to the device with one CSS transform. Identical on every screen.
-const VERSION = "18";                    // bump on every deploy
+const VERSION = "20";                    // bump on every deploy
 const PAGE_W = 1240;
 const PAGE_H = 1754;
 const UPP    = PAGE_W / 595.28;          // units per typographic point
@@ -43,16 +43,42 @@ const RULE   = "var(--border)";
 const CHROME = "var(--parchment-dark)";
 
 // Stroke colour is stored as an index into this array, never as a hex string.
-// Index 0 is the theme's own ink colour, resolved at draw time so notes stay
-// legible in both light and dark mode. The rest are fixed mid-tones that read
-// on either paper.
+// Index 0 is black, stored as null so it resolves to the theme's ink colour at
+// draw time — black on parchment, cream in dark mode, where real black would
+// be invisible. Every other entry is a fixed hex.
 const PEN_COLOURS = [
-  null, "#297373", "#8C3A3A", "#4F7A34",
-  "#2F4F7F", "#9A6B2F", "#7A4E8C", "#8A8378",
+  null,       // black
+  "#1E5B2E",  // dark green
+  "#5FA845",  // light green
+  "#1F3F7A",  // dark blue
+  "#4A90D9",  // light blue
+  "#6B3FA0",  // purple
+  "#B33A3A",  // red
+  "#E07A28",  // orange
+  "#C9A227",  // yellow
+  "#D9538C",  // pink
+  "#1F7A7A",  // teal
+  "#7A5230",  // brown
 ];
+const PEN_NAMES = ["Black", "Dark green", "Light green", "Dark blue", "Light blue",
+  "Purple", "Red", "Orange", "Yellow", "Pink", "Teal", "Brown"];
 const PEN_WIDTHS = [1.6, 3.0, 5.5];      // in page units, before pressure
 const ERASER_R   = [12, 26, 52];         // circle eraser radius, same S/M/L control
-const HL_COLOURS = ["#F2D14E", "#9BD98C", "#F2A6C2", "#8FC7E8", "#F0A868"];
+const HL_COLOURS = [
+  "#2E8B4A",  // dark green
+  "#8FD94A",  // light green
+  "#3355C7",  // dark blue
+  "#5FC8F0",  // light blue
+  "#9B5FD0",  // purple
+  "#E8483F",  // red
+  "#F59433",  // orange
+  "#F5E04A",  // yellow
+  "#F080B8",  // pink
+  "#2FB5AE",  // teal
+  "#A9713F",  // brown
+];
+const HL_NAMES = ["Dark green", "Light green", "Dark blue", "Light blue", "Purple",
+  "Red", "Orange", "Yellow", "Pink", "Teal", "Brown"];
 const HL_WIDTHS  = [16, 26, 40];         // highlighter nib, no pressure response
 const HL_ALPHA   = 0.33;
 
@@ -102,6 +128,15 @@ async function idbSet(key, val) {
     tx.objectStore(STORE).put(val, key);
     tx.oncomplete = () => res();
     tx.onerror = () => rej(tx.error);
+  });
+}
+async function idbDel(key) {
+  const d = await db();
+  return new Promise((res) => {
+    const tx = d.transaction(STORE, "readwrite");
+    tx.objectStore(STORE).delete(key);
+    tx.oncomplete = () => res();
+    tx.onerror = () => res();
   });
 }
 async function idbDirtyKeys() {
@@ -156,6 +191,25 @@ function compress(pts) {
     Math.round(p[1] * 10) / 10,
     Math.round(p[2] * 100) / 100,
   ]);
+}
+
+// Simple polyline render, used for the small previews in the word index.
+function paintStrokes(c, strokes, inkColour) {
+  c.lineCap = "round"; c.lineJoin = "round";
+  const ordered = [...strokes].sort((a, b) => (a.h ? 0 : 1) - (b.h ? 0 : 1));
+  for (const s of ordered) {
+    const pts = s.p;
+    if (!pts || !pts.length) continue;
+    if (s.h) { c.save(); c.globalAlpha = HL_ALPHA; c.strokeStyle = HL_COLOURS[s.c] || HL_COLOURS[0]; }
+    else c.strokeStyle = PEN_COLOURS[s.c] || inkColour;
+    c.lineWidth = s.w;
+    c.beginPath();
+    c.moveTo(pts[0][0], pts[0][1]);
+    if (pts.length === 1) c.lineTo(pts[0][0] + 0.01, pts[0][1]);
+    for (let i = 1; i < pts.length; i++) c.lineTo(pts[i][0], pts[i][1]);
+    c.stroke();
+    if (s.h) c.restore();
+  }
 }
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
@@ -947,6 +1001,21 @@ export default function ScribePage({
 
   function openIndex() { setShowIndex(true); }
 
+  // Removes the link and the page of notes attached to it, locally and remotely.
+  async function deleteLink(l) {
+    const next = allLinks.filter(x => x.page_key !== l.page_key);
+    setAllLinks(next);
+    if (wordPage && wordPage.page_key === l.page_key) setWordPage(null);
+    try { await idbSet(LINKS_KEY, next); } catch {}
+    try { await idbDel(l.page_key); } catch {}
+    if (user) {
+      await supabase.from("word_links").delete()
+        .eq("user_id", user.id).eq("page_key", l.page_key);
+      await supabase.from("ink_pages").delete()
+        .eq("user_id", user.id).eq("page_key", l.page_key);
+    }
+  }
+
   const sortedLinks = [...allLinks].sort((a, b) =>
     BOOKS.indexOf(a.book) - BOOKS.indexOf(b.book) ||
     a.chapter - b.chapter || a.verse - b.verse || a.start_offset - b.start_offset);
@@ -1102,7 +1171,8 @@ export default function ScribePage({
       )}
 
       {showIndex && (
-        <WordIndex links={sortedLinks} onClose={() => setShowIndex(false)} onOpen={(l) => {
+        <WordIndex links={sortedLinks} inkColour={inkColour} onDelete={deleteLink}
+          onClose={() => setShowIndex(false)} onOpen={(l) => {
           setShowIndex(false);
           if (l.book !== book) setBook(l.book);
           if (l.chapter !== chapter) setChapter(l.chapter);
@@ -1177,17 +1247,18 @@ const ghost = (active) => ({
 function Swatches({ colour, setColour, hlColour, setHlColour, tool, setTool, inkColour, wrap, afterPick }) {
   const hl = tool === "highlighter";
   const list = hl ? HL_COLOURS : PEN_COLOURS;
+  const names = hl ? HL_NAMES : PEN_NAMES;
   const active = hl ? hlColour : colour;
   return (
-    <div style={{ display: "flex", flexWrap: wrap ? "wrap" : "nowrap", gap: 6, justifyContent: "center" }}>
+    <div style={{ display: "flex", flexWrap: wrap ? "wrap" : "nowrap", gap: 5, justifyContent: "center" }}>
       {list.map((c, i) => (
-        <button key={i} aria-label={`${hl ? "Highlighter" : "Ink"} colour ${i + 1}`}
+        <button key={i} title={names[i]} aria-label={`${hl ? "Highlighter" : "Ink"}: ${names[i]}`}
           onClick={() => {
             if (hl) setHlColour(i); else { setColour(i); setTool("pen"); }
             if (afterPick) afterPick();
           }}
           style={{
-            width: 20, height: 20, borderRadius: hl ? 4 : "50%", flexShrink: 0, cursor: "pointer",
+            width: 19, height: 19, borderRadius: hl ? 4 : "50%", flexShrink: 0, cursor: "pointer",
             background: c || inkColour,
             border: active === i ? "2px solid var(--gold-light)" : "1px solid var(--border)",
           }} />
@@ -1354,14 +1425,14 @@ function CompactBar(p) {
     position: "absolute", top: BAR_H + 4, right: 8, zIndex: 60,
     background: "var(--parchment)", border: "1px solid var(--border)",
     borderRadius: 8, padding: 10, display: "flex", flexDirection: "column", gap: 8,
-    boxShadow: "0 6px 20px rgba(0,0,0,.22)", width: 190,
+    boxShadow: "0 6px 20px rgba(0,0,0,.22)", width: 200,
   };
 
   return (
     <div style={{
       ...face, width: "100%", height: BAR_H, flexShrink: 0, position: "relative",
       background: "var(--parchment)", borderBottom: "1px solid var(--border)",
-      display: "flex", alignItems: "center", gap: 4, padding: "0 8px",
+      display: "flex", alignItems: "center", gap: 3, padding: "0 5px",
       color: "var(--ink)", overflow: "visible",
     }}>
       <button style={{ ...ghost(false), padding: "4px 7px" }} onClick={exit}>
@@ -1382,8 +1453,9 @@ function CompactBar(p) {
       ) : (
         <>
           <button onClick={openPicker} style={{
-            ...ghost(false), minWidth: 0, overflow: "hidden",
-            textOverflow: "ellipsis", display: "block", whiteSpace: "nowrap",
+            ...ghost(false), flexShrink: 1, flexBasis: "auto", minWidth: 42,
+            overflow: "hidden", textOverflow: "ellipsis", display: "block",
+            whiteSpace: "nowrap", padding: "4px 6px",
           }}>{book} {chapter}</button>
           <button style={{ ...ghost(false), padding: "4px 7px" }} onClick={() => turn(-1)}>‹</button>
           <span style={{ fontSize: 12, minWidth: 30, textAlign: "center", flexShrink: 0 }}>
@@ -1406,19 +1478,18 @@ function CompactBar(p) {
         }} />
         <span style={{ fontSize: 10 }}>{["S", "M", "L"][width]}</span>
       </button>
-      <button style={{ ...ghost(tool === "highlighter"), padding: "4px 7px" }} title="Highlighter"
+      <button style={{ ...ghost(tool === "highlighter"), padding: "4px 6px" }} title="Highlighter"
         onClick={() => setTool(tool === "highlighter" ? "pen" : "highlighter")}>
         <Icon d={ICONS.hl} /></button>
-      <button style={{ ...ghost(tool === "eraser"), padding: "4px 7px" }}
+      <button style={{ ...ghost(tool === "eraser"), padding: "4px 6px" }}
         onClick={() => setTool(tool === "eraser" ? "pen" : "eraser")}>
         <Icon d={ICONS.erase} /></button>
-      {tool === "eraser" && <EraseModes {...{ eraseMode, setEraseMode }} />}
-      <button style={{ ...ghost(tool === "link"), padding: "4px 7px" }}
+      <button style={{ ...ghost(tool === "link"), padding: "4px 6px" }}
         onClick={() => setTool(tool === "link" ? "pen" : "link")}>
         <Icon d={ICONS.link} /></button>
-      <button style={{ ...ghost(false), padding: "4px 7px" }}
+      <button style={{ ...ghost(false), padding: "4px 6px" }}
         onClick={() => window.__scribeInk?.undo()}><Icon d={ICONS.undo} /></button>
-      <button style={{ ...ghost(menu), padding: "4px 7px" }} title="More"
+      <button style={{ ...ghost(menu), padding: "4px 6px" }} title="More"
         onClick={() => { setPalette(false); setMenu(v => !v); }}>
         <Icon d={ICONS.pages} /></button>
 
@@ -1428,6 +1499,12 @@ function CompactBar(p) {
 
       {palette && (
         <div style={pop}>
+          {tool === "eraser" && (
+            <>
+              <EraseModes {...{ eraseMode, setEraseMode }} />
+              <Sep vertical />
+            </>
+          )}
           <Swatches wrap afterPick={closeAll}
             {...{ colour, setColour, hlColour, setHlColour, tool, setTool, inkColour }} />
           <Widths afterPick={closeAll} {...{ width, setWidth, tool, setTool }} />
@@ -1526,35 +1603,123 @@ function PassagePicker({ book, chapter, verses, onPick, onClose }) {
 }
 
 // ─── WORD PAGE INDEX ─────────────────────────────────────────────────────────
-function WordIndex({ links, onClose, onOpen }) {
+function PageThumb({ pageKey, inkColour, w = 150 }) {
+  const ref = useRef(null);
+  const [empty, setEmpty] = useState(false);
+  const h = Math.round((w * PAGE_H) / PAGE_W);
+
+  useEffect(() => {
+    let dead = false;
+    (async () => {
+      let rec = null;
+      try { rec = await idbGet(pageKey); } catch {}
+      if (dead || !ref.current) return;
+      const c = ref.current.getContext("2d");
+      const k = w / PAGE_W;
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      c.clearRect(0, 0, w, h);
+      c.setTransform(k, 0, 0, k, 0, 0);
+      const strokes = rec?.strokes || [];
+      setEmpty(strokes.length === 0);
+      if (strokes.length) paintStrokes(c, strokes, inkColour);
+    })();
+    return () => { dead = true; };
+  }, [pageKey, inkColour, w, h]);
+
+  return (
+    <div style={{ position: "relative", flexShrink: 0 }}>
+      <canvas ref={ref} width={w} height={h} style={{
+        display: "block", background: "var(--parchment)",
+        border: "1px solid var(--border)", borderRadius: 4,
+      }} />
+      {empty && (
+        <span style={{
+          position: "absolute", inset: 0, display: "grid", placeItems: "center",
+          fontSize: 11, color: "var(--ink-light)", fontStyle: "italic",
+        }}>no notes yet</span>
+      )}
+    </div>
+  );
+}
+
+function WordIndex({ links, inkColour, onClose, onOpen, onDelete }) {
+  const [confirming, setConfirming] = useState(null);
+
   return (
     <div onClick={onClose} style={{
       position: "fixed", inset: 0, background: "rgba(0,0,0,.6)",
       display: "grid", placeItems: "center", zIndex: 50,
     }}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: "var(--parchment)", color: "var(--ink)", width: 520,
+        background: "var(--parchment)", color: "var(--ink)", width: "min(520px, 92vw)",
         maxHeight: "70vh", overflowY: "auto", border: "1px solid var(--border)",
         borderRadius: 8, padding: "20px 24px", fontFamily: "'Lato', sans-serif",
       }}>
-        <div style={{ fontWeight: 700, color: ACCENT, textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 12 }}>
+        <div style={{ fontWeight: 700, color: "var(--gold)", textTransform: "uppercase",
+                      letterSpacing: ".05em", marginBottom: 12 }}>
           Word pages
         </div>
+
         {links.length === 0 && (
           <div style={{ color: "var(--ink-light)" }}>
             No word pages yet. Turn on the link tool, then tap a word in the text.
           </div>
         )}
+
         {links.map(l => (
-          <div key={l.id || l.page_key} onClick={() => onOpen(l)} style={{
-            padding: "10px 0", borderBottom: `1px solid ${RULE}`, cursor: "pointer",
-            display: "flex", justifyContent: "space-between",
+          <div key={l.id || l.page_key} style={{
+            padding: "10px 0", borderBottom: "1px solid var(--border)",
+            display: "flex", alignItems: "center", gap: 10,
           }}>
-            <span style={{ fontWeight: 600 }}>{l.word}</span>
-            <span style={{ color: "var(--ink-light)" }}>{l.book} {l.chapter}:{l.verse}</span>
+            <div onClick={() => onOpen(l)} style={{ flex: 1, minWidth: 0, cursor: "pointer",
+                                                    display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontWeight: 600 }}>{l.word}</span>
+              <span style={{ color: "var(--ink-light)" }}>{l.book} {l.chapter}:{l.verse}</span>
+            </div>
+            <button aria-label={`Delete the page for ${l.word}`}
+              onClick={() => setConfirming(l)}
+              style={{ ...ghost(false), padding: "4px 7px", color: "var(--ink-light)",
+                       borderColor: "var(--border)" }}>
+              <Icon d={ICONS.clear} size={15} />
+            </button>
           </div>
         ))}
       </div>
+
+      {confirming && (
+        <div onClick={e => { e.stopPropagation(); setConfirming(null); }} style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,.55)",
+          display: "grid", placeItems: "center", zIndex: 70,
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: "var(--parchment)", color: "var(--ink)",
+            border: "1px solid var(--border)", borderRadius: 8, padding: 20,
+            width: "min(420px, 92vw)", fontFamily: "'Lato', sans-serif",
+          }}>
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>
+              Delete the page for “{confirming.word}”?
+            </div>
+            <div style={{ fontSize: 13, color: "var(--ink-light)", marginBottom: 14 }}>
+              {confirming.book} {confirming.chapter}:{confirming.verse} — the link and
+              everything written on its page will be removed. This can’t be undone.
+            </div>
+
+            <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+              <PageThumb pageKey={confirming.page_key} inkColour={inkColour} />
+              <div style={{ flex: 1, display: "flex", flexDirection: "column",
+                            gap: 8, alignItems: "stretch" }}>
+                <button style={ghost(false)} onClick={() => setConfirming(null)}>Cancel</button>
+                <button
+                  style={{ ...ghost(false), background: "#8C3A3A", color: "#fff",
+                           borderColor: "#8C3A3A" }}
+                  onClick={() => { onDelete(confirming); setConfirming(null); }}>
+                  Delete page
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
