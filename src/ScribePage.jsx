@@ -126,18 +126,26 @@ function perpDist(p, a, b) {
   const cx = a[0] + t * dx, cy = a[1] + t * dy;
   return Math.hypot(p[0] - cx, p[1] - cy);
 }
+// Iterative rather than recursive: at the current sampling density a long,
+// slow stroke can run to thousands of points and blow the call stack.
 function simplify(pts, eps = 0.4) {
-  if (pts.length < 3) return pts;
-  let maxD = 0, idx = 0;
-  for (let i = 1; i < pts.length - 1; i++) {
-    const d = perpDist(pts[i], pts[0], pts[pts.length - 1]);
-    if (d > maxD) { maxD = d; idx = i; }
+  const n = pts.length;
+  if (n < 3) return pts;
+  const keep = new Uint8Array(n);
+  keep[0] = 1; keep[n - 1] = 1;
+  const stack = [[0, n - 1]];
+  while (stack.length) {
+    const [a, b] = stack.pop();
+    let maxD = 0, idx = -1;
+    for (let i = a + 1; i < b; i++) {
+      const d = perpDist(pts[i], pts[a], pts[b]);
+      if (d > maxD) { maxD = d; idx = i; }
+    }
+    if (idx >= 0 && maxD > eps) { keep[idx] = 1; stack.push([a, idx], [idx, b]); }
   }
-  if (maxD <= eps) return [pts[0], pts[pts.length - 1]];
-  return [
-    ...simplify(pts.slice(0, idx + 1), eps).slice(0, -1),
-    ...simplify(pts.slice(idx), eps),
-  ];
+  const out = [];
+  for (let i = 0; i < n; i++) if (keep[i]) out.push(pts[i]);
+  return out;
 }
 // One decimal on coordinates: at 2x raster a whole page unit is two device
 // pixels, so integers were visibly quantising the curves.
@@ -291,13 +299,16 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour, 
   function onPointerDown(e) {
     const isPen = e.pointerType === "pen" || e.pointerType === "mouse";
 
+    // A touch that arrives mid-stroke is a palm. Ignore it completely.
+    if (!isPen && drawingRef.current) return;
+
     // Word tapping: finger anywhere, or the pen while the link tool is active.
     if (!isPen || tool === "link") {
       const hit = findWord(e.clientX, e.clientY);
       if (hit) { onWordHit(hit, tool === "link"); return; }
       if (!isPen) {
         canvasRef.current.setPointerCapture(e.pointerId);
-        swipeRef.current = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY };
+        swipeRef.current = { id: e.pointerId, x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY };
         return;
       }
       return;
@@ -305,6 +316,7 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour, 
     if (tool === "link") return;
 
     e.preventDefault();
+    swipeRef.current = null;          // drop any pending palm/finger gesture
     canvasRef.current.setPointerCapture(e.pointerId);
     const [x, y] = toPage(e);
     const pr = e.pressure > 0 ? e.pressure : 0.5;
@@ -332,9 +344,10 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour, 
   }
 
   function onPointerMove(e) {
-    // finger drag: pan when zoomed in, otherwise it becomes a page swipe
+    // finger drag: pan when zoomed in, otherwise it becomes a page swipe.
+    // Scoped to the pointer that began it, so a palm can't hijack the pen.
     const sw = swipeRef.current;
-    if (sw) {
+    if (sw && sw.id === e.pointerId) {
       if (onPan) { onPan(e.clientX - sw.x, e.clientY - sw.y); sw.x = e.clientX; sw.y = e.clientY; }
       return;
     }
@@ -383,7 +396,7 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour, 
   }
 
   function onPointerUp(e) {
-    if (swipeRef.current) {
+    if (swipeRef.current && swipeRef.current.id === e.pointerId) {
       const { sx, sy } = swipeRef.current;
       swipeRef.current = null;
       if (onPan) return;                       // zoomed: that drag was a pan
