@@ -16,7 +16,7 @@ import defaultClient from "./supabaseClient";
 // ─── PAGE GEOMETRY (A4 portrait at 150 units/inch) ───────────────────────────
 // Everything inside the page is measured in these units and the whole page is
 // scaled to the device with one CSS transform. Identical on every screen.
-const VERSION = "15";                    // bump on every deploy
+const VERSION = "16";                    // bump on every deploy
 const PAGE_W = 1240;
 const PAGE_H = 1754;
 const UPP    = PAGE_W / 595.28;          // units per typographic point
@@ -172,7 +172,7 @@ function tokenize(text) {
 // INK LAYER — one transparent canvas over the whole page
 // ─────────────────────────────────────────────────────────────────────────────
 function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour,
-                    width, inkColour, onWordHit, onSwipe, onPan }) {
+                    width, inkColour, onWordHit, onSwipe, onPan, debug }) {
   const canvasRef  = useRef(null);
   const cacheRef   = useRef(null);
   const strokesRef = useRef([]);
@@ -184,6 +184,19 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour,
   const dirtyRef   = useRef(false);
   const [overlay, setOverlay] = useState(null);
   const [, force] = useState(0);
+  const statsRef = useRef(null);
+  const counts = useRef({ down: 0, up: 0, skip: 0 });
+
+  // Written straight to the DOM: a re-render per pointer event would be worse
+  // than the problem being measured.
+  function note(kind, e) {
+    counts.current[kind] += 1;
+    const n = statsRef.current;
+    if (n) {
+      const c = counts.current;
+      n.textContent = `down ${c.down}  up ${c.up}  skip ${c.skip}  ${e.pointerType}#${e.pointerId}`;
+    }
+  }
 
   // Native listeners are bound once, so everything mutable they need is read
   // through this ref rather than captured in a closure.
@@ -373,6 +386,7 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour,
 
     function down(e) {
       const k = cfg.current;
+      note("down", e);
       const isPen = e.pointerType === "pen" || e.pointerType === "mouse";
 
       if (!isPen && drawingRef.current) return;          // palm during a stroke
@@ -392,7 +406,7 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour,
 
       // Any stroke still open (a lost pointerup) is committed before starting
       // a new one — this is what was swallowing every other quick stroke.
-      if (drawingRef.current) commit();
+      if (drawingRef.current) { counts.current.skip += 1; commit(); }
 
       const [x, y] = toPage(e);
       const pr = e.pressure > 0 ? e.pressure : 0.5;
@@ -500,6 +514,7 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour,
       }
       const d = drawingRef.current;
       if (!d || d.id !== e.pointerId) return;
+      note("up", e);
       commit();
     }
 
@@ -508,11 +523,22 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour,
     // issues a new pointerId per contact the next stroke lands on a canvas
     // that still believes it owns the previous one. Listening on window gives
     // the same reach beyond the element with none of that behaviour.
+    // WebKit builds pointer events on top of touch events and runs its own
+    // gesture recogniser first. Two Pencil contacts inside the double-tap
+    // window get paired and the second pointerdown is swallowed — which is
+    // exactly the every-other-stroke pattern. touch-action alone does not
+    // stop it for pen input; preventing the touchstart default does.
+    const swallowTouch = (e) => { e.preventDefault(); };
+    el.addEventListener("touchstart", swallowTouch, { passive: false });
+    el.addEventListener("touchmove", swallowTouch, { passive: false });
+
     el.addEventListener("pointerdown", down, { passive: false });
     window.addEventListener("pointermove", move, { passive: false });
     window.addEventListener("pointerup", up);
     window.addEventListener("pointercancel", up);
     return () => {
+      el.removeEventListener("touchstart", swallowTouch);
+      el.removeEventListener("touchmove", swallowTouch);
       el.removeEventListener("pointerdown", down);
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
@@ -541,6 +567,12 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour,
 
   return (
     <>
+    {debug && (
+      <div ref={statsRef} style={{
+        position: "absolute", left: 10, top: 10, zIndex: 5, pointerEvents: "none",
+        font: "700 20px 'Lato', sans-serif", color: "var(--ink-light)",
+      }}>waiting…</div>
+    )}
     {overlay && (
       <div style={overlay.type === "circle"
         ? {
@@ -672,6 +704,7 @@ export default function ScribePage({
   const [tool, setTool] = useState("pen");
   const [hlColour, setHlColour] = useState(0);
   const [zoom, setZoom] = useState(1);
+  const [debug, setDebug] = useState(false);
   const scale = fitScale * zoom;   // must come after zoom: const has no hoisting
   const [eraseMode, setEraseMode] = useState("touch");   // touch | circle | rect
   const [colour, setColour] = useState(0);
@@ -928,7 +961,7 @@ export default function ScribePage({
     hlColour, setHlColour, zoom, stepZoom, ZOOMS,
     exit, user, openIndex, wordPage, setWordPage,
     openPicker: () => setPicker(true),
-    palette, setPalette, dark, toggleDark,
+    palette, setPalette, dark, toggleDark, debug, setDebug,
   };
 
   // ─── render ──────────────────────────────────────────────────────────────
@@ -1006,6 +1039,7 @@ export default function ScribePage({
             onWordHit={handleWordHit}
             onSwipe={turn}
             onPan={zoom > 1 ? panBy : null}
+            debug={debug}
           />
         </div>
         </div>
@@ -1173,7 +1207,7 @@ function Rail(p) {
   const { book, chapter, pageIdx, pages, turn, tool, setTool, colour, setColour,
           width, setWidth, inkColour, exit, user, openIndex, wordPage, setWordPage,
           openPicker, dark, toggleDark, eraseMode, setEraseMode,
-          hlColour, setHlColour, zoom, stepZoom, ZOOMS } = p;
+          hlColour, setHlColour, zoom, stepZoom, ZOOMS, debug, setDebug } = p;
   return (
     <div style={{
       ...face, width: RAIL_W, flexShrink: 0, height: "100%", overflowY: "auto",
@@ -1252,7 +1286,9 @@ function Rail(p) {
       <span style={{ fontSize: 10, color: "var(--ink-light)" }}>{Math.round(zoom * 100)}%</span>
 
       <div style={{ flex: 1 }} />
-      <span style={{ fontSize: 10, fontWeight: 700, color: "var(--ink-light)" }}>v{VERSION}</span>
+      <span onClick={() => setDebug(v => !v)} title="Tap for event diagnostics"
+        style={{ fontSize: 10, fontWeight: 700, cursor: "pointer",
+                 color: debug ? "var(--gold)" : "var(--ink-light)" }}>v{VERSION}</span>
       {!user && (
         <span title="Sign in on the reading app to sync" style={{
           fontSize: 9, fontWeight: 700, letterSpacing: ".4px", textTransform: "uppercase",
@@ -1268,7 +1304,7 @@ function CompactBar(p) {
   const { book, chapter, pageIdx, pages, turn, tool, setTool, colour, setColour,
           width, setWidth, inkColour, exit, user, openIndex, wordPage, setWordPage,
           openPicker, palette, setPalette, dark, toggleDark, eraseMode, setEraseMode,
-          hlColour, setHlColour, zoom, stepZoom, ZOOMS } = p;
+          hlColour, setHlColour, zoom, stepZoom, ZOOMS, debug, setDebug } = p;
   return (
     <div style={{
       ...face, width: "100%", height: BAR_H, flexShrink: 0, position: "relative",
@@ -1276,8 +1312,9 @@ function CompactBar(p) {
       display: "flex", alignItems: "center", gap: 6, padding: "0 10px", color: "var(--ink)",
     }}>
       <button style={ghost(false)} onClick={exit}><Icon d={ICONS.back} size={14} /></button>
-      <span style={{ fontSize: 10, fontWeight: 700, color: "var(--ink-light)",
-                     flexShrink: 0 }}>v{VERSION}</span>
+      <span onClick={() => setDebug(v => !v)} title="Tap for event diagnostics"
+        style={{ fontSize: 10, fontWeight: 700, flexShrink: 0, cursor: "pointer",
+                 color: debug ? "var(--gold)" : "var(--ink-light)" }}>v{VERSION}</span>
 
       {wordPage ? (
         <>
