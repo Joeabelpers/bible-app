@@ -382,7 +382,6 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour,
         if (!isPen) {
           gestureRef.current = { id: e.pointerId, x: e.clientX, y: e.clientY,
                                  sx: e.clientX, sy: e.clientY };
-          el.setPointerCapture(e.pointerId);
         }
         return;
       }
@@ -394,7 +393,6 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour,
       // a new one — this is what was swallowing every other quick stroke.
       if (drawingRef.current) commit();
 
-      el.setPointerCapture(e.pointerId);
       const [x, y] = toPage(e);
       const pr = e.pressure > 0 ? e.pressure : 0.5;
 
@@ -504,17 +502,20 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour,
       commit();
     }
 
+    // Pointer capture is deliberately not used: WebKit does not reliably
+    // release it between rapid Apple Pencil contacts, and because iPadOS
+    // issues a new pointerId per contact the next stroke lands on a canvas
+    // that still believes it owns the previous one. Listening on window gives
+    // the same reach beyond the element with none of that behaviour.
     el.addEventListener("pointerdown", down, { passive: false });
-    el.addEventListener("pointermove", move, { passive: false });
-    el.addEventListener("pointerup", up);
-    el.addEventListener("pointercancel", up);
-    el.addEventListener("lostpointercapture", up);
+    window.addEventListener("pointermove", move, { passive: false });
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
     return () => {
       el.removeEventListener("pointerdown", down);
-      el.removeEventListener("pointermove", move);
-      el.removeEventListener("pointerup", up);
-      el.removeEventListener("pointercancel", up);
-      el.removeEventListener("lostpointercapture", up);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
     };
   }, []);
 
@@ -933,6 +934,7 @@ export default function ScribePage({
       position: "fixed", inset: 0, background: "var(--parchment-dark)",
       display: "flex", flexDirection: "column", alignItems: "stretch",
       fontFamily: FONT_STACK, overflow: "hidden", userSelect: "none",
+      touchAction: "none", WebkitTapHighlightColor: "transparent",
       WebkitUserSelect: "none", WebkitTouchCallout: "none",
     }}>
       {!railMode && <CompactBar {...ctl} />}
