@@ -29,8 +29,8 @@ const TEXT_H = PAGE_H - MARGIN * 2;
 const FONT_PT = 10;
 const FONT_SIZE = FONT_PT * UPP;         // ≈ 20.8 units = physical 10pt
 const LINE_H = FONT_SIZE * 1.5;
-const RULE_GAP = 52;
-const RASTER = 1.5;                      // canvas backing resolution multiplier
+const RULE_GAP = 36;                     // narrow-ruled, ~6mm at print size
+const RASTER = 2;                        // canvas backing resolution multiplier
 const RAIL_W = 96;                       // vertical tool rail
 const BAR_H  = 52;                       // compact top bar
 
@@ -51,6 +51,9 @@ const PEN_COLOURS = [
 ];
 const PEN_WIDTHS = [1.6, 3.0, 5.5];      // in page units, before pressure
 const ERASER_R   = [12, 26, 52];         // circle eraser radius, same S/M/L control
+const HL_COLOURS = ["#F2D14E", "#9BD98C", "#F2A6C2", "#8FC7E8", "#F0A868"];
+const HL_WIDTHS  = [16, 26, 40];         // highlighter nib, no pressure response
+const HL_ALPHA   = 0.33;
 
 const FONT_STACK = "'Lato', sans-serif";   // same face as the reading app
 
@@ -123,7 +126,7 @@ function perpDist(p, a, b) {
   const cx = a[0] + t * dx, cy = a[1] + t * dy;
   return Math.hypot(p[0] - cx, p[1] - cy);
 }
-function simplify(pts, eps = 0.8) {
+function simplify(pts, eps = 0.4) {
   if (pts.length < 3) return pts;
   let maxD = 0, idx = 0;
   for (let i = 1; i < pts.length - 1; i++) {
@@ -136,8 +139,14 @@ function simplify(pts, eps = 0.8) {
     ...simplify(pts.slice(idx), eps),
   ];
 }
+// One decimal on coordinates: at 2x raster a whole page unit is two device
+// pixels, so integers were visibly quantising the curves.
 function compress(pts) {
-  return simplify(pts).map(p => [Math.round(p[0]), Math.round(p[1]), Math.round(p[2] * 100) / 100]);
+  return simplify(pts).map(p => [
+    Math.round(p[0] * 10) / 10,
+    Math.round(p[1] * 10) / 10,
+    Math.round(p[2] * 100) / 100,
+  ]);
 }
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
@@ -153,7 +162,7 @@ function tokenize(text) {
 // ─────────────────────────────────────────────────────────────────────────────
 // INK LAYER — one transparent canvas over the whole page
 // ─────────────────────────────────────────────────────────────────────────────
-function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, width, inkColour, onWordHit, onSwipe }) {
+function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour, width, inkColour, onWordHit, onSwipe, onPan }) {
   const canvasRef = useRef(null);
   const strokesRef = useRef([]);
   const historyRef = useRef([]);
@@ -171,7 +180,9 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, width, ink
     c.clearRect(0, 0, PAGE_W * RASTER, PAGE_H * RASTER);
     c.scale(RASTER, RASTER);
     c.lineCap = "round"; c.lineJoin = "round";
-    for (const s of strokesRef.current) drawStroke(c, s);
+    // highlighter first so ink always sits on top of it
+    const ordered = [...strokesRef.current].sort((a, b) => (a.h ? 0 : 1) - (b.h ? 0 : 1));
+    for (const s of ordered) drawStroke(c, s);
     // inkColour must be a dependency: colour 0 follows the theme, and a stale
     // closure here repaints every theme-ink stroke in the old colour.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -179,6 +190,28 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, width, ink
 
   function drawStroke(c, s) {
     const pts = s.p;
+
+    if (s.h) {                                   // highlighter: flat, translucent
+      c.save();
+      c.globalAlpha = HL_ALPHA;
+      c.globalCompositeOperation = "multiply";
+      c.strokeStyle = HL_COLOURS[s.c] || HL_COLOURS[0];
+      c.lineWidth = s.w;
+      c.lineCap = "round"; c.lineJoin = "round";
+      c.beginPath();
+      c.moveTo(pts[0][0], pts[0][1]);
+      if (pts.length === 1) c.lineTo(pts[0][0] + 0.01, pts[0][1]);
+      for (let i = 1; i < pts.length - 1; i++) {
+        const mx = (pts[i][0] + pts[i + 1][0]) / 2;
+        const my = (pts[i][1] + pts[i + 1][1]) / 2;
+        c.quadraticCurveTo(pts[i][0], pts[i][1], mx, my);
+      }
+      if (pts.length > 1) c.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
+      c.stroke();
+      c.restore();
+      return;
+    }
+
     c.strokeStyle = PEN_COLOURS[s.c] || inkColour;
     if (pts.length === 1) {
       c.fillStyle = c.strokeStyle;
@@ -262,7 +295,11 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, width, ink
     if (!isPen || tool === "link") {
       const hit = findWord(e.clientX, e.clientY);
       if (hit) { onWordHit(hit, tool === "link"); return; }
-      if (!isPen) { swipeRef.current = { x: e.clientX, y: e.clientY }; return; }
+      if (!isPen) {
+        canvasRef.current.setPointerCapture(e.pointerId);
+        swipeRef.current = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY };
+        return;
+      }
       return;
     }
     if (tool === "link") return;
@@ -273,6 +310,7 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, width, ink
     const pr = e.pressure > 0 ? e.pressure : 0.5;
 
     if (tool === "eraser") {
+      /* eslint-disable-next-line no-unused-expressions */
       if (eraseMode === "rect") {
         drawingRef.current = { rect: true, x0: x, y0: y, x1: x, y1: y };
         setOverlay({ type: "rect", x0: x, y0: y, x1: x, y1: y });
@@ -287,11 +325,19 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, width, ink
 
     historyRef.current.push(strokesRef.current);
     if (historyRef.current.length > 40) historyRef.current.shift();
-    drawingRef.current = { c: colour, w: PEN_WIDTHS[width], p: [[x, y, pr]] };
+    drawingRef.current = tool === "highlighter"
+      ? { c: hlColour, w: HL_WIDTHS[width], h: 1, p: [[x, y, pr]] }
+      : { c: colour, w: PEN_WIDTHS[width], p: [[x, y, pr]] };
     force(n => n + 1);
   }
 
   function onPointerMove(e) {
+    // finger drag: pan when zoomed in, otherwise it becomes a page swipe
+    const sw = swipeRef.current;
+    if (sw) {
+      if (onPan) { onPan(e.clientX - sw.x, e.clientY - sw.y); sw.x = e.clientX; sw.y = e.clientY; }
+      return;
+    }
     const d = drawingRef.current; if (!d) return;
     e.preventDefault();
     const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
@@ -307,6 +353,20 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, width, ink
       if (eraseMode === "circle") { const [x, y] = toPage(e); setOverlay({ type: "circle", x, y, r }); }
       return;
     }
+    if (d.h) {
+      for (const ev of events) {
+        const [x, y] = toPage(ev);
+        const a = d.p[d.p.length - 1];
+        if (Math.hypot(x - a[0], y - a[1]) < 1.2) continue;
+        d.p.push([x, y, 1]);
+      }
+      redraw();
+      const c2 = ctx();
+      c2.setTransform(RASTER, 0, 0, RASTER, 0, 0);
+      drawStroke(c2, d);
+      return;
+    }
+
     const c = ctx();
     c.setTransform(RASTER, 0, 0, RASTER, 0, 0);
     c.lineCap = "round"; c.lineJoin = "round";
@@ -315,7 +375,7 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, width, ink
       const [x, y] = toPage(ev);
       const pr = ev.pressure > 0 ? ev.pressure : 0.5;
       const a = d.p[d.p.length - 1];
-      if (Math.hypot(x - a[0], y - a[1]) < 0.6) continue;
+      if (Math.hypot(x - a[0], y - a[1]) < 0.3) continue;
       c.lineWidth = d.w * (0.35 + 0.65 * ((a[2] + pr) / 2));
       c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(x, y); c.stroke();
       d.p.push([x, y, pr]);
@@ -324,9 +384,11 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, width, ink
 
   function onPointerUp(e) {
     if (swipeRef.current) {
-      const dx = e.clientX - swipeRef.current.x;
-      const dy = Math.abs(e.clientY - swipeRef.current.y);
+      const { sx, sy } = swipeRef.current;
       swipeRef.current = null;
+      if (onPan) return;                       // zoomed: that drag was a pan
+      const dx = e.clientX - sx;
+      const dy = Math.abs(e.clientY - sy);
       if (Math.abs(dx) > 90 && dy < 70) onSwipe(dx < 0 ? 1 : -1);
       return;
     }
@@ -334,7 +396,8 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, width, ink
     drawingRef.current = null;
     if (d.rect) { eraseRect(d.x0, d.y0, d.x1, d.y1); setOverlay(null); persist(); return; }
     if (d.erasing) { setOverlay(null); persist(); return; }
-    strokesRef.current = [...strokesRef.current, { c: d.c, w: d.w, p: compress(d.p) }];
+    strokesRef.current = [...strokesRef.current,
+      d.h ? { c: d.c, w: d.w, h: 1, p: compress(d.p) } : { c: d.c, w: d.w, p: compress(d.p) }];
     redraw();
     persist();
     force(n => n + 1);
@@ -515,12 +578,15 @@ export default function ScribePage({
   const [loading, setLoading] = useState(true);
   const [pages, setPages] = useState([[0, 0]]);
   const [pageIdx, setPageIdx] = useState(0);
-  const [scale, setScale] = useState(0.5);
+  const [fitScale, setFitScale] = useState(0.5);
   const [railMode, setRailMode] = useState(true);
+  const scale = fitScale * zoom;
   const [picker, setPicker] = useState(false);
   const [palette, setPalette] = useState(false);
 
   const [tool, setTool] = useState("pen");
+  const [hlColour, setHlColour] = useState(0);
+  const [zoom, setZoom] = useState(1);
   const [eraseMode, setEraseMode] = useState("touch");   // touch | circle | rect
   const [colour, setColour] = useState(0);
   const [width, setWidth] = useState(1);
@@ -530,6 +596,7 @@ export default function ScribePage({
   const [showIndex, setShowIndex] = useState(false);
 
   const measureRef = useRef(null);
+  const scrollRef = useRef(null);
   const headRef = useRef(null);
 
   // ── theme: the same variables and typeface as the reading app ────────────
@@ -581,7 +648,7 @@ export default function ScribePage({
       const railW = rail ? RAIL_W : 0;
       const topH = rail ? 0 : BAR_H;             // rail mode gives the top bar's height back
       setRailMode(rail);
-      setScale(Math.min(
+      setFitScale(Math.min(
         (window.innerWidth - railW - 24) / PAGE_W,
         (window.innerHeight - topH - 20) / PAGE_H,
       ));
@@ -741,15 +808,36 @@ export default function ScribePage({
   const [pStart, pEnd] = pages[pageIdx] || [0, -1];
   const visible = verses.slice(pStart, pEnd + 1);
 
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
+    el.scrollTop = (el.scrollHeight - el.clientHeight) / 2;
+  }, [zoom]);
+
+  const ZOOMS = [1, 1.5, 2, 3];
+  const stepZoom = (dir) => setZoom(z => {
+    const i = ZOOMS.indexOf(z);
+    return ZOOMS[Math.max(0, Math.min(ZOOMS.length - 1, (i < 0 ? 0 : i) + dir))];
+  });
+
   const toggleDark = () => setDark(v => {
     const n = !v;
     try { localStorage.setItem("bibleDarkMode", String(n)); } catch {}
     return n;
   });
 
+  const panBy = (dx, dy) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollLeft -= dx;
+    el.scrollTop -= dy;
+  };
+
   const ctl = {
     book, chapter, maxCh, verses, pageIdx, pages, turn, jumpToVerse,
     tool, setTool, eraseMode, setEraseMode, colour, setColour, width, setWidth, inkColour,
+    hlColour, setHlColour, zoom, stepZoom, ZOOMS,
     exit, user, openIndex, wordPage, setWordPage,
     openPicker: () => setPicker(true),
     palette, setPalette, dark, toggleDark,
@@ -766,12 +854,13 @@ export default function ScribePage({
       {!railMode && <CompactBar {...ctl} />}
 
       <div style={{ flex: 1, minHeight: 0, width: "100%", display: "flex", overflow: "hidden" }}>
-      <div style={{
-        flex: 1, minWidth: 0, overflow: "hidden",
-        display: "flex", alignItems: "center", justifyContent: "center",
+      <div ref={scrollRef} style={{
+        flex: 1, minWidth: 0, display: "flex",
+        overflow: zoom > 1 ? "auto" : "hidden",
       }}>
-        {/* outer box is the scaled footprint so centring actually works */}
-        <div style={{ width: PAGE_W * scale, height: PAGE_H * scale, flexShrink: 0, position: "relative" }}>
+        {/* margin auto centres the page and still reaches the edges when zoomed */}
+        <div style={{ width: PAGE_W * scale, height: PAGE_H * scale, flexShrink: 0,
+                      position: "relative", margin: "auto" }}>
         <div style={{
           width: PAGE_W, height: PAGE_H, transform: `scale(${scale})`,
           transformOrigin: "top left", position: "absolute", top: 0, left: 0,
@@ -822,10 +911,12 @@ export default function ScribePage({
             tool={tool}
             eraseMode={eraseMode}
             colour={colour}
+            hlColour={hlColour}
             width={width}
             inkColour={inkColour}
             onWordHit={handleWordHit}
             onSwipe={turn}
+            onPan={zoom > 1 ? panBy : null}
           />
         </div>
         </div>
@@ -915,6 +1006,9 @@ const ICONS = {
   clear: <><path d="M4 7h16" /><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /><path d="M6 7l1 13h10l1-13" /></>,
   pages: <><path d="M4 5h16" /><path d="M4 12h16" /><path d="M4 19h16" /></>,
   back:  <><path d="M19 12H5" /><path d="m12 19-7-7 7-7" /></>,
+  hl:    <><path d="M4 20h6" /><path d="m14 4 6 6-8 8H8l-2-2z" /></>,
+  zoomIn:  <><circle cx="11" cy="11" r="7" /><path d="M11 8v6M8 11h6" /><path d="m20 20-4-4" /></>,
+  zoomOut: <><circle cx="11" cy="11" r="7" /><path d="M8 11h6" /><path d="m20 20-4-4" /></>,
   theme: <><circle cx="12" cy="12" r="8" /><path d="M12 4a8 8 0 0 0 0 16z" fill="currentColor" stroke="none" /></>,
 };
 
@@ -927,17 +1021,19 @@ const ghost = (active) => ({
   fontSize: 12, fontWeight: 700, padding: "4px 8px", whiteSpace: "nowrap", flexShrink: 0,
 });
 
-function Swatches({ colour, setColour, tool, setTool, inkColour, wrap }) {
+function Swatches({ colour, setColour, hlColour, setHlColour, tool, setTool, inkColour, wrap }) {
+  const hl = tool === "highlighter";
+  const list = hl ? HL_COLOURS : PEN_COLOURS;
+  const active = hl ? hlColour : colour;
   return (
     <div style={{ display: "flex", flexWrap: wrap ? "wrap" : "nowrap", gap: 6, justifyContent: "center" }}>
-      {PEN_COLOURS.map((c, i) => (
-        <button key={i} aria-label={`Ink colour ${i + 1}`}
-          onClick={() => { setColour(i); setTool("pen"); }}
+      {list.map((c, i) => (
+        <button key={i} aria-label={`${hl ? "Highlighter" : "Ink"} colour ${i + 1}`}
+          onClick={() => { if (hl) { setHlColour(i); } else { setColour(i); setTool("pen"); } }}
           style={{
-            width: 20, height: 20, borderRadius: "50%", flexShrink: 0, cursor: "pointer",
+            width: 20, height: 20, borderRadius: hl ? 4 : "50%", flexShrink: 0, cursor: "pointer",
             background: c || inkColour,
-            border: colour === i && tool === "pen"
-              ? "2px solid var(--gold-light)" : "1px solid var(--border)",
+            border: active === i ? "2px solid var(--gold-light)" : "1px solid var(--border)",
           }} />
       ))}
     </div>
@@ -949,8 +1045,8 @@ function Widths({ width, setWidth, tool, setTool }) {
     <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
       {PEN_WIDTHS.map((w, i) => (
         <button key={i}
-          style={{ ...ghost(width === i && (tool === "pen" || tool === "eraser")), padding: "3px 8px" }}
-          onClick={() => { setWidth(i); setTool(t => (t === "eraser" ? t : "pen")); }}>
+          style={{ ...ghost(width === i), padding: "3px 8px" }}
+          onClick={() => { setWidth(i); setTool(t => (t === "pen" || t === "link") ? "pen" : t); }}>
           {["S", "M", "L"][i]}
         </button>
       ))}
@@ -987,7 +1083,8 @@ const Sep = ({ vertical }) => (
 function Rail(p) {
   const { book, chapter, pageIdx, pages, turn, tool, setTool, colour, setColour,
           width, setWidth, inkColour, exit, user, openIndex, wordPage, setWordPage,
-          openPicker, dark, toggleDark, eraseMode, setEraseMode } = p;
+          openPicker, dark, toggleDark, eraseMode, setEraseMode,
+          hlColour, setHlColour, zoom, stepZoom, ZOOMS } = p;
   return (
     <div style={{
       ...face, width: RAIL_W, flexShrink: 0, height: "100%", overflowY: "auto",
@@ -1021,7 +1118,14 @@ function Rail(p) {
       )}
 
       <Sep vertical />
-      <Swatches wrap {...{ colour, setColour, tool, setTool, inkColour }} />
+      <div style={{ display: "flex", gap: 4, width: "100%" }}>
+        <button style={{ ...ghost(tool === "pen"), flex: 1 }} onClick={() => setTool("pen")}>Pen</button>
+        <button style={{ ...ghost(tool === "highlighter"), flex: 1 }}
+          onClick={() => setTool("highlighter")} title="Highlighter">
+          <Icon d={ICONS.hl} size={14} />
+        </button>
+      </div>
+      <Swatches wrap {...{ colour, setColour, hlColour, setHlColour, tool, setTool, inkColour }} />
       <Widths {...{ width, setWidth, tool, setTool }} />
       <Sep vertical />
 
@@ -1048,6 +1152,15 @@ function Rail(p) {
         title={dark ? "Light mode" : "Dark mode"}>
         <Icon d={ICONS.theme} />
       </button>
+      <Sep vertical />
+      <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+        <button style={{ ...ghost(false), padding: "3px 5px" }} disabled={zoom === ZOOMS[0]}
+          onClick={() => stepZoom(-1)}><Icon d={ICONS.zoomOut} size={13} /></button>
+        <button style={{ ...ghost(false), padding: "3px 5px" }}
+          disabled={zoom === ZOOMS[ZOOMS.length - 1]}
+          onClick={() => stepZoom(1)}><Icon d={ICONS.zoomIn} size={13} /></button>
+      </div>
+      <span style={{ fontSize: 10, color: "var(--ink-light)" }}>{Math.round(zoom * 100)}%</span>
 
       <div style={{ flex: 1 }} />
       {!user && (
@@ -1064,7 +1177,8 @@ function Rail(p) {
 function CompactBar(p) {
   const { book, chapter, pageIdx, pages, turn, tool, setTool, colour, setColour,
           width, setWidth, inkColour, exit, user, openIndex, wordPage, setWordPage,
-          openPicker, palette, setPalette, dark, toggleDark, eraseMode, setEraseMode } = p;
+          openPicker, palette, setPalette, dark, toggleDark, eraseMode, setEraseMode,
+          hlColour, setHlColour, zoom, stepZoom, ZOOMS } = p;
   return (
     <div style={{
       ...face, width: "100%", height: BAR_H, flexShrink: 0, position: "relative",
@@ -1097,11 +1211,16 @@ function CompactBar(p) {
       <button aria-label="Pen and colour" onClick={() => setPalette(v => !v)}
         style={{ ...ghost(palette), padding: "3px 6px" }}>
         <span style={{
-          width: 16, height: 16, borderRadius: "50%", display: "block",
-          background: PEN_COLOURS[colour] || inkColour, border: "1px solid var(--border)",
+          width: 16, height: 16, display: "block", border: "1px solid var(--border)",
+          borderRadius: tool === "highlighter" ? 3 : "50%",
+          background: tool === "highlighter"
+            ? HL_COLOURS[hlColour] : (PEN_COLOURS[colour] || inkColour),
         }} />
         <span style={{ fontSize: 11 }}>{["S", "M", "L"][width]}</span>
       </button>
+      <button style={ghost(tool === "highlighter")} title="Highlighter"
+        onClick={() => setTool(tool === "highlighter" ? "pen" : "highlighter")}>
+        <Icon d={ICONS.hl} /></button>
       <button style={ghost(tool === "eraser")}
         onClick={() => setTool(tool === "eraser" ? "pen" : "eraser")}><Icon d={ICONS.erase} /></button>
       {tool === "eraser" && <EraseModes {...{ eraseMode, setEraseMode }} />}
@@ -1119,8 +1238,17 @@ function CompactBar(p) {
           borderRadius: 8, padding: 10, display: "flex", flexDirection: "column", gap: 8,
           boxShadow: "0 6px 20px rgba(0,0,0,.22)", width: 168,
         }}>
-          <Swatches wrap {...{ colour, setColour, tool, setTool, inkColour }} />
+          <Swatches wrap {...{ colour, setColour, hlColour, setHlColour, tool, setTool, inkColour }} />
           <Widths {...{ width, setWidth, tool, setTool }} />
+          <Sep vertical />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <button style={{ ...ghost(false), padding: "3px 6px" }} disabled={zoom === ZOOMS[0]}
+              onClick={() => stepZoom(-1)}><Icon d={ICONS.zoomOut} size={13} /></button>
+            <span style={{ fontSize: 11 }}>{Math.round(zoom * 100)}%</span>
+            <button style={{ ...ghost(false), padding: "3px 6px" }}
+              disabled={zoom === ZOOMS[ZOOMS.length - 1]}
+              onClick={() => stepZoom(1)}><Icon d={ICONS.zoomIn} size={13} /></button>
+          </div>
           <Sep vertical />
           <button style={ghost(false)}
             onClick={() => { if (window.confirm("Clear all ink on this page?")) window.__scribeInk?.clear(); }}>
