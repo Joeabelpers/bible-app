@@ -16,7 +16,7 @@ import defaultClient from "./supabaseClient";
 // ─── PAGE GEOMETRY (A4 portrait at 150 units/inch) ───────────────────────────
 // Everything inside the page is measured in these units and the whole page is
 // scaled to the device with one CSS transform. Identical on every screen.
-const VERSION = "16";                    // bump on every deploy
+const VERSION = "18";                    // bump on every deploy
 const PAGE_W = 1240;
 const PAGE_H = 1754;
 const UPP    = PAGE_W / 595.28;          // units per typographic point
@@ -172,7 +172,7 @@ function tokenize(text) {
 // INK LAYER — one transparent canvas over the whole page
 // ─────────────────────────────────────────────────────────────────────────────
 function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour,
-                    width, inkColour, onWordHit, onSwipe, onPan, debug }) {
+                    width, inkColour, pressure, onWordHit, onSwipe, onPan, debug }) {
   const canvasRef  = useRef(null);
   const cacheRef   = useRef(null);
   const strokesRef = useRef([]);
@@ -202,7 +202,7 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour,
   // through this ref rather than captured in a closure.
   const cfg = useRef(null);
   cfg.current = { pageKey, supabase, user, tool, eraseMode, colour, hlColour,
-                  width, inkColour, onWordHit, onSwipe, onPan };
+                  width, inkColour, pressure, onWordHit, onSwipe, onPan };
 
   // ─── canvas plumbing ───────────────────────────────────────────────────
   const ctx = () => canvasRef.current?.getContext("2d");
@@ -260,13 +260,33 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour,
     }
 
     c.strokeStyle = PEN_COLOURS[s.c] || cfg.current.inkColour;
+    const usePressure = cfg.current.pressure;
+
     if (pts.length === 1) {
       c.fillStyle = c.strokeStyle;
+      const r = usePressure ? (s.w * (pts[0][2] || 0.5)) / 1.4 : s.w / 2;
       c.beginPath();
-      c.arc(pts[0][0], pts[0][1], (s.w * (pts[0][2] || 0.5)) / 1.4, 0, 6.2832);
+      c.arc(pts[0][0], pts[0][1], r, 0, 6.2832);
       c.fill();
       return;
     }
+
+    if (!usePressure) {
+      // Constant width lets the whole stroke be one smoothed path, which
+      // renders both better and faster than per-segment strokes.
+      c.lineWidth = s.w;
+      c.beginPath();
+      c.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length - 1; i++) {
+        const mx = (pts[i][0] + pts[i + 1][0]) / 2;
+        const my = (pts[i][1] + pts[i + 1][1]) / 2;
+        c.quadraticCurveTo(pts[i][0], pts[i][1], mx, my);
+      }
+      c.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
+      c.stroke();
+      return;
+    }
+
     for (let i = 1; i < pts.length; i++) {
       const a = pts[i - 1], b = pts[i];
       c.lineWidth = s.w * (0.35 + 0.65 * ((a[2] + b[2]) / 2));
@@ -286,7 +306,7 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour,
     blit();
   }
   const redraw = useCallback(rebuild, []);
-  useEffect(() => { rebuild(); }, [inkColour]);   // eslint-disable-line
+  useEffect(() => { rebuild(); }, [inkColour, pressure]);   // eslint-disable-line
 
   // ─── saving ────────────────────────────────────────────────────────────
   async function writeLocal() {
@@ -478,7 +498,7 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour,
         const pr = ev.pressure > 0 ? ev.pressure : 0.5;
         const a = d.p[d.p.length - 1];
         if (Math.hypot(x - a[0], y - a[1]) < 0.3) continue;
-        c.lineWidth = d.w * (0.35 + 0.65 * ((a[2] + pr) / 2));
+        c.lineWidth = k.pressure ? d.w * (0.35 + 0.65 * ((a[2] + pr) / 2)) : d.w;
         c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(x, y); c.stroke();
         d.p.push([x, y, pr]);
       }
@@ -700,11 +720,20 @@ export default function ScribePage({
   const [railMode, setRailMode] = useState(true);
   const [picker, setPicker] = useState(false);
   const [palette, setPalette] = useState(false);
+  const [menu, setMenu] = useState(false);
 
   const [tool, setTool] = useState("pen");
   const [hlColour, setHlColour] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [debug, setDebug] = useState(false);
+  const [pressure, setPressure] = useState(() => {
+    try { return localStorage.getItem("scribePressure") === "1"; } catch { return false; }
+  });
+  const togglePressure = () => setPressure(v => {
+    const n = !v;
+    try { localStorage.setItem("scribePressure", n ? "1" : "0"); } catch {}
+    return n;
+  });
   const scale = fitScale * zoom;   // must come after zoom: const has no hoisting
   const [eraseMode, setEraseMode] = useState("touch");   // touch | circle | rect
   const [colour, setColour] = useState(0);
@@ -961,7 +990,7 @@ export default function ScribePage({
     hlColour, setHlColour, zoom, stepZoom, ZOOMS,
     exit, user, openIndex, wordPage, setWordPage,
     openPicker: () => setPicker(true),
-    palette, setPalette, dark, toggleDark, debug, setDebug,
+    palette, setPalette, menu, setMenu, dark, toggleDark, debug, setDebug, pressure, togglePressure,
   };
 
   // ─── render ──────────────────────────────────────────────────────────────
@@ -1040,6 +1069,7 @@ export default function ScribePage({
             onSwipe={turn}
             onPan={zoom > 1 ? panBy : null}
             debug={debug}
+            pressure={pressure}
           />
         </div>
         </div>
@@ -1144,7 +1174,7 @@ const ghost = (active) => ({
   fontSize: 12, fontWeight: 700, padding: "4px 8px", whiteSpace: "nowrap", flexShrink: 0,
 });
 
-function Swatches({ colour, setColour, hlColour, setHlColour, tool, setTool, inkColour, wrap }) {
+function Swatches({ colour, setColour, hlColour, setHlColour, tool, setTool, inkColour, wrap, afterPick }) {
   const hl = tool === "highlighter";
   const list = hl ? HL_COLOURS : PEN_COLOURS;
   const active = hl ? hlColour : colour;
@@ -1152,7 +1182,10 @@ function Swatches({ colour, setColour, hlColour, setHlColour, tool, setTool, ink
     <div style={{ display: "flex", flexWrap: wrap ? "wrap" : "nowrap", gap: 6, justifyContent: "center" }}>
       {list.map((c, i) => (
         <button key={i} aria-label={`${hl ? "Highlighter" : "Ink"} colour ${i + 1}`}
-          onClick={() => { if (hl) { setHlColour(i); } else { setColour(i); setTool("pen"); } }}
+          onClick={() => {
+            if (hl) setHlColour(i); else { setColour(i); setTool("pen"); }
+            if (afterPick) afterPick();
+          }}
           style={{
             width: 20, height: 20, borderRadius: hl ? 4 : "50%", flexShrink: 0, cursor: "pointer",
             background: c || inkColour,
@@ -1163,13 +1196,17 @@ function Swatches({ colour, setColour, hlColour, setHlColour, tool, setTool, ink
   );
 }
 
-function Widths({ width, setWidth, tool, setTool }) {
+function Widths({ width, setWidth, tool, setTool, afterPick }) {
   return (
     <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
       {PEN_WIDTHS.map((w, i) => (
         <button key={i}
           style={{ ...ghost(width === i), padding: "3px 8px" }}
-          onClick={() => { setWidth(i); setTool(t => (t === "pen" || t === "link") ? "pen" : t); }}>
+          onClick={() => {
+            setWidth(i);
+            setTool(t => (t === "pen" || t === "link") ? "pen" : t);
+            if (afterPick) afterPick();
+          }}>
           {["S", "M", "L"][i]}
         </button>
       ))}
@@ -1207,7 +1244,8 @@ function Rail(p) {
   const { book, chapter, pageIdx, pages, turn, tool, setTool, colour, setColour,
           width, setWidth, inkColour, exit, user, openIndex, wordPage, setWordPage,
           openPicker, dark, toggleDark, eraseMode, setEraseMode,
-          hlColour, setHlColour, zoom, stepZoom, ZOOMS, debug, setDebug } = p;
+          hlColour, setHlColour, zoom, stepZoom, ZOOMS, debug, setDebug,
+          pressure, togglePressure } = p;
   return (
     <div style={{
       ...face, width: RAIL_W, flexShrink: 0, height: "100%", overflowY: "auto",
@@ -1250,6 +1288,10 @@ function Rail(p) {
       </div>
       <Swatches wrap {...{ colour, setColour, hlColour, setHlColour, tool, setTool, inkColour }} />
       <Widths {...{ width, setWidth, tool, setTool }} />
+      <button style={{ ...ghost(pressure), width: "100%", fontSize: 10 }}
+        onClick={togglePressure} title="Vary line width with pen pressure">
+        Pressure {pressure ? "on" : "off"}
+      </button>
       <Sep vertical />
 
       <button style={{ ...ghost(tool === "eraser"), width: "100%" }}
@@ -1303,15 +1345,28 @@ function Rail(p) {
 function CompactBar(p) {
   const { book, chapter, pageIdx, pages, turn, tool, setTool, colour, setColour,
           width, setWidth, inkColour, exit, user, openIndex, wordPage, setWordPage,
-          openPicker, palette, setPalette, dark, toggleDark, eraseMode, setEraseMode,
-          hlColour, setHlColour, zoom, stepZoom, ZOOMS, debug, setDebug } = p;
+          openPicker, palette, setPalette, menu, setMenu, dark, toggleDark,
+          eraseMode, setEraseMode, hlColour, setHlColour, zoom, stepZoom, ZOOMS,
+          debug, setDebug, pressure, togglePressure } = p;
+
+  const closeAll = () => { setPalette(false); setMenu(false); };
+  const pop = {
+    position: "absolute", top: BAR_H + 4, right: 8, zIndex: 60,
+    background: "var(--parchment)", border: "1px solid var(--border)",
+    borderRadius: 8, padding: 10, display: "flex", flexDirection: "column", gap: 8,
+    boxShadow: "0 6px 20px rgba(0,0,0,.22)", width: 190,
+  };
+
   return (
     <div style={{
       ...face, width: "100%", height: BAR_H, flexShrink: 0, position: "relative",
       background: "var(--parchment)", borderBottom: "1px solid var(--border)",
-      display: "flex", alignItems: "center", gap: 6, padding: "0 10px", color: "var(--ink)",
+      display: "flex", alignItems: "center", gap: 4, padding: "0 8px",
+      color: "var(--ink)", overflow: "visible",
     }}>
-      <button style={ghost(false)} onClick={exit}><Icon d={ICONS.back} size={14} /></button>
+      <button style={{ ...ghost(false), padding: "4px 7px" }} onClick={exit}>
+        <Icon d={ICONS.back} size={14} />
+      </button>
       <span onClick={() => setDebug(v => !v)} title="Tap for event diagnostics"
         style={{ fontSize: 10, fontWeight: 700, flexShrink: 0, cursor: "pointer",
                  color: debug ? "var(--gold)" : "var(--ink-light)" }}>v{VERSION}</span>
@@ -1319,57 +1374,71 @@ function CompactBar(p) {
       {wordPage ? (
         <>
           <button style={ghost(false)} onClick={() => setWordPage(null)}>Text</button>
-          <span style={{ fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          <span style={{ fontSize: 12, whiteSpace: "nowrap", overflow: "hidden",
+                         textOverflow: "ellipsis", minWidth: 0 }}>
             {wordPage.word} · {wordPage.chapter}:{wordPage.verse}
           </span>
         </>
       ) : (
         <>
-          <button style={{ ...ghost(false), overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}
-            onClick={openPicker}>{book} {chapter}</button>
-          <button style={ghost(false)} onClick={() => turn(-1)}>‹</button>
-          <span style={{ fontSize: 12, minWidth: 34, textAlign: "center", flexShrink: 0 }}>
+          <button onClick={openPicker} style={{
+            ...ghost(false), minWidth: 0, overflow: "hidden",
+            textOverflow: "ellipsis", display: "block", whiteSpace: "nowrap",
+          }}>{book} {chapter}</button>
+          <button style={{ ...ghost(false), padding: "4px 7px" }} onClick={() => turn(-1)}>‹</button>
+          <span style={{ fontSize: 12, minWidth: 30, textAlign: "center", flexShrink: 0 }}>
             {pageIdx + 1}/{pages.length}
           </span>
-          <button style={ghost(false)} onClick={() => turn(1)}>›</button>
+          <button style={{ ...ghost(false), padding: "4px 7px" }} onClick={() => turn(1)}>›</button>
         </>
       )}
 
-      <span style={{ flex: 1, minWidth: 4 }} />
+      <span style={{ flex: 1, minWidth: 2 }} />
 
-      <button aria-label="Pen and colour" onClick={() => setPalette(v => !v)}
-        style={{ ...ghost(palette), padding: "3px 6px" }}>
+      <button aria-label="Pen and colour"
+        onClick={() => { setMenu(false); setPalette(v => !v); }}
+        style={{ ...ghost(palette), padding: "3px 5px" }}>
         <span style={{
-          width: 16, height: 16, display: "block", border: "1px solid var(--border)",
+          width: 15, height: 15, display: "block", border: "1px solid var(--border)",
           borderRadius: tool === "highlighter" ? 3 : "50%",
           background: tool === "highlighter"
             ? HL_COLOURS[hlColour] : (PEN_COLOURS[colour] || inkColour),
         }} />
-        <span style={{ fontSize: 11 }}>{["S", "M", "L"][width]}</span>
+        <span style={{ fontSize: 10 }}>{["S", "M", "L"][width]}</span>
       </button>
-      <button style={ghost(tool === "highlighter")} title="Highlighter"
+      <button style={{ ...ghost(tool === "highlighter"), padding: "4px 7px" }} title="Highlighter"
         onClick={() => setTool(tool === "highlighter" ? "pen" : "highlighter")}>
         <Icon d={ICONS.hl} /></button>
-      <button style={ghost(tool === "eraser")}
-        onClick={() => setTool(tool === "eraser" ? "pen" : "eraser")}><Icon d={ICONS.erase} /></button>
+      <button style={{ ...ghost(tool === "eraser"), padding: "4px 7px" }}
+        onClick={() => setTool(tool === "eraser" ? "pen" : "eraser")}>
+        <Icon d={ICONS.erase} /></button>
       {tool === "eraser" && <EraseModes {...{ eraseMode, setEraseMode }} />}
-      <button style={ghost(tool === "link")}
-        onClick={() => setTool(tool === "link" ? "pen" : "link")}><Icon d={ICONS.link} /></button>
-      <button style={ghost(false)} onClick={() => window.__scribeInk?.undo()}><Icon d={ICONS.undo} /></button>
-      <button style={ghost(false)} onClick={openIndex}><Icon d={ICONS.pages} /></button>
-      <button style={ghost(false)} onClick={toggleDark}
-        title={dark ? "Light mode" : "Dark mode"}><Icon d={ICONS.theme} /></button>
+      <button style={{ ...ghost(tool === "link"), padding: "4px 7px" }}
+        onClick={() => setTool(tool === "link" ? "pen" : "link")}>
+        <Icon d={ICONS.link} /></button>
+      <button style={{ ...ghost(false), padding: "4px 7px" }}
+        onClick={() => window.__scribeInk?.undo()}><Icon d={ICONS.undo} /></button>
+      <button style={{ ...ghost(menu), padding: "4px 7px" }} title="More"
+        onClick={() => { setPalette(false); setMenu(v => !v); }}>
+        <Icon d={ICONS.pages} /></button>
+
+      {(palette || menu) && (
+        <div onClick={closeAll} style={{ position: "fixed", inset: 0, zIndex: 55 }} />
+      )}
 
       {palette && (
-        <div style={{
-          position: "absolute", top: BAR_H + 4, right: 10, zIndex: 60,
-          background: "var(--parchment)", border: "1px solid var(--border)",
-          borderRadius: 8, padding: 10, display: "flex", flexDirection: "column", gap: 8,
-          boxShadow: "0 6px 20px rgba(0,0,0,.22)", width: 168,
-        }}>
-          <Swatches wrap {...{ colour, setColour, hlColour, setHlColour, tool, setTool, inkColour }} />
-          <Widths {...{ width, setWidth, tool, setTool }} />
-          <Sep vertical />
+        <div style={pop}>
+          <Swatches wrap afterPick={closeAll}
+            {...{ colour, setColour, hlColour, setHlColour, tool, setTool, inkColour }} />
+          <Widths afterPick={closeAll} {...{ width, setWidth, tool, setTool }} />
+        </div>
+      )}
+
+      {menu && (
+        <div style={pop}>
+          <button style={ghost(false)} onClick={() => { closeAll(); openIndex(); }}>
+            <Icon d={ICONS.pages} /> Word pages
+          </button>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <button style={{ ...ghost(false), padding: "3px 6px" }} disabled={zoom === ZOOMS[0]}
               onClick={() => stepZoom(-1)}><Icon d={ICONS.zoomOut} size={13} /></button>
@@ -1378,9 +1447,17 @@ function CompactBar(p) {
               disabled={zoom === ZOOMS[ZOOMS.length - 1]}
               onClick={() => stepZoom(1)}><Icon d={ICONS.zoomIn} size={13} /></button>
           </div>
+          <button style={ghost(pressure)} onClick={() => { togglePressure(); closeAll(); }}>
+            Pressure {pressure ? "on" : "off"}
+          </button>
+          <button style={ghost(false)} onClick={() => { toggleDark(); closeAll(); }}>
+            <Icon d={ICONS.theme} size={14} /> {dark ? "Light mode" : "Dark mode"}
+          </button>
           <Sep vertical />
-          <button style={ghost(false)}
-            onClick={() => { if (window.confirm("Clear all ink on this page?")) window.__scribeInk?.clear(); }}>
+          <button style={ghost(false)} onClick={() => {
+            closeAll();
+            if (window.confirm("Clear all ink on this page?")) window.__scribeInk?.clear();
+          }}>
             <Icon d={ICONS.clear} /> Clear page
           </button>
           {!user && (
