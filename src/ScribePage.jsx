@@ -16,6 +16,7 @@ import defaultClient from "./supabaseClient";
 // ─── PAGE GEOMETRY (A4 portrait at 150 units/inch) ───────────────────────────
 // Everything inside the page is measured in these units and the whole page is
 // scaled to the device with one CSS transform. Identical on every screen.
+const VERSION = "15";                    // bump on every deploy
 const PAGE_W = 1240;
 const PAGE_H = 1754;
 const UPP    = PAGE_W / 595.28;          // units per typographic point
@@ -691,6 +692,8 @@ export default function ScribePage({
   });
   const [inkColour, setInkColour] = useState("#221E1E");
 
+  useEffect(() => { console.log(`ScribePage v${VERSION}`); }, []);
+
   useEffect(() => {
     const id = "scribe-theme";
     if (!document.getElementById(id)) {
@@ -1249,6 +1252,7 @@ function Rail(p) {
       <span style={{ fontSize: 10, color: "var(--ink-light)" }}>{Math.round(zoom * 100)}%</span>
 
       <div style={{ flex: 1 }} />
+      <span style={{ fontSize: 10, fontWeight: 700, color: "var(--ink-light)" }}>v{VERSION}</span>
       {!user && (
         <span title="Sign in on the reading app to sync" style={{
           fontSize: 9, fontWeight: 700, letterSpacing: ".4px", textTransform: "uppercase",
@@ -1272,6 +1276,8 @@ function CompactBar(p) {
       display: "flex", alignItems: "center", gap: 6, padding: "0 10px", color: "var(--ink)",
     }}>
       <button style={ghost(false)} onClick={exit}><Icon d={ICONS.back} size={14} /></button>
+      <span style={{ fontSize: 10, fontWeight: 700, color: "var(--ink-light)",
+                     flexShrink: 0 }}>v{VERSION}</span>
 
       {wordPage ? (
         <>
