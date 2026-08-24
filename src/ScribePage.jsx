@@ -16,7 +16,7 @@ import defaultClient from "./supabaseClient";
 // ─── PAGE GEOMETRY (A4 portrait at 150 units/inch) ───────────────────────────
 // Everything inside the page is measured in these units and the whole page is
 // scaled to the device with one CSS transform. Identical on every screen.
-const VERSION = "21";                    // bump on every deploy
+const VERSION = "23";                    // bump on every deploy
 const PAGE_W = 1240;
 const PAGE_H = 1754;
 const UPP    = PAGE_W / 595.28;          // units per typographic point
@@ -819,6 +819,7 @@ export default function ScribePage({
   const [picker, setPicker] = useState(false);
   const [palette, setPalette] = useState(false);
   const [menu, setMenu] = useState(false);
+  const [erasePop, setErasePop] = useState(false);
 
   const [tool, setTool] = useState("pen");
   const [hlColour, setHlColour] = useState(0);
@@ -1105,7 +1106,7 @@ export default function ScribePage({
     hlColour, setHlColour, zoom, stepZoom, ZOOMS,
     exit, user, openIndex, wordPage, setWordPage,
     openPicker: () => setPicker(true),
-    palette, setPalette, menu, setMenu, dark, toggleDark, readOnly, debug, setDebug, pressure, togglePressure,
+    palette, setPalette, menu, setMenu, erasePop, setErasePop, dark, toggleDark, readOnly, debug, setDebug, pressure, togglePressure,
   };
 
   // ─── render ──────────────────────────────────────────────────────────────
@@ -1276,6 +1277,7 @@ const ICONS = {
   clear: <><path d="M4 7h16" /><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /><path d="M6 7l1 13h10l1-13" /></>,
   pages: <><path d="M4 5h16" /><path d="M4 12h16" /><path d="M4 19h16" /></>,
   back:  <><path d="M19 12H5" /><path d="m12 19-7-7 7-7" /></>,
+  pen:   <><path d="M15.5 3.5 20.5 8.5 8 21H3v-5z" /><path d="m14 5 5 5" /></>,
   hl:    <><path d="M4 20h6" /><path d="m14 4 6 6-8 8H8l-2-2z" /></>,
   zoomIn:  <><circle cx="11" cy="11" r="7" /><path d="M11 8v6M8 11h6" /><path d="m20 20-4-4" /></>,
   zoomOut: <><circle cx="11" cy="11" r="7" /><path d="M8 11h6" /><path d="m20 20-4-4" /></>,
@@ -1338,14 +1340,18 @@ const ERASE_MODES = [
   ["rect",   "Box",   "Drag a box; strokes fully inside it go"],
 ];
 
-function EraseModes({ eraseMode, setEraseMode, stacked }) {
+function EraseModes({ eraseMode, setEraseMode, stacked, afterPick }) {
   return (
     <div style={{ display: "flex", flexDirection: stacked ? "column" : "row", gap: 4 }}>
       {ERASE_MODES.map(([id, label, hint]) => (
         <button key={id} title={hint}
           style={{ ...ghost(eraseMode === id), padding: "3px 7px", fontSize: 10,
                    width: stacked ? "100%" : undefined }}
-          onClick={() => setEraseMode(id)}>{label}</button>
+          onClick={() => {
+            setEraseMode(id);
+            // circle needs a size, so keep the panel open for that one
+            if (afterPick && id !== "circle") afterPick();
+          }}>{label}</button>
       ))}
     </div>
   );
@@ -1398,7 +1404,8 @@ function Rail(p) {
 
       <Sep vertical />
       <div style={{ display: "flex", gap: 4, width: "100%" }}>
-        <button style={{ ...ghost(tool === "pen"), flex: 1 }} onClick={() => setTool("pen")}>Pen</button>
+        <button style={{ ...ghost(tool === "pen"), flex: 1 }} onClick={() => setTool("pen")}
+          title="Pen"><Icon d={ICONS.pen} size={14} /></button>
         <button style={{ ...ghost(tool === "highlighter"), flex: 1 }}
           onClick={() => setTool("highlighter")} title="Highlighter">
           <Icon d={ICONS.hl} size={14} />
@@ -1463,11 +1470,13 @@ function Rail(p) {
 function CompactBar(p) {
   const { book, chapter, pageIdx, pages, turn, tool, setTool, colour, setColour,
           width, setWidth, inkColour, exit, user, openIndex, wordPage, setWordPage,
-          openPicker, palette, setPalette, menu, setMenu, dark, toggleDark,
-          eraseMode, setEraseMode, hlColour, setHlColour, zoom, stepZoom, ZOOMS,
-          debug, setDebug, pressure, togglePressure, readOnly } = p;
+          openPicker, palette, setPalette, menu, setMenu, erasePop, setErasePop,
+          dark, toggleDark, eraseMode, setEraseMode, hlColour, setHlColour,
+          zoom, stepZoom, ZOOMS, debug, setDebug, pressure, togglePressure,
+          readOnly } = p;
 
-  const closeAll = () => { setPalette(false); setMenu(false); };
+  const closeAll = () => { setPalette(false); setMenu(false); setErasePop(false); };
+  const pick = (t) => { closeAll(); setTool(t); };
   const pop = {
     position: "absolute", top: BAR_H + 4, right: 8, zIndex: 60,
     background: "var(--parchment)", border: "1px solid var(--border)",
@@ -1546,15 +1555,23 @@ function CompactBar(p) {
               }} />
               <span style={{ fontSize: 10 }}>{["S", "M", "L"][width]}</span>
             </button>
+            <button style={{ ...ghost(tool === "pen"), padding: "4px 6px" }} title="Pen"
+              onClick={() => pick("pen")}>
+              <Icon d={ICONS.pen} /></button>
             <button style={{ ...ghost(tool === "highlighter"), padding: "4px 6px" }}
               title="Highlighter"
-              onClick={() => setTool(tool === "highlighter" ? "pen" : "highlighter")}>
+              onClick={() => pick(tool === "highlighter" ? "pen" : "highlighter")}>
               <Icon d={ICONS.hl} /></button>
             <button style={{ ...ghost(tool === "eraser"), padding: "4px 6px" }}
-              onClick={() => setTool(tool === "eraser" ? "pen" : "eraser")}>
+              title="Eraser — tap again for options"
+              onClick={() => {
+                setPalette(false); setMenu(false);
+                if (tool === "eraser") { setErasePop(v => !v); }
+                else { setTool("eraser"); setErasePop(true); }
+              }}>
               <Icon d={ICONS.erase} /></button>
             <button style={{ ...ghost(tool === "link"), padding: "4px 6px" }}
-              onClick={() => setTool(tool === "link" ? "pen" : "link")}>
+              onClick={() => pick(tool === "link" ? "pen" : "link")}>
               <Icon d={ICONS.link} /></button>
             <button style={icon} onClick={() => window.__scribeInk?.undo()}>
               <Icon d={ICONS.undo} /></button>
@@ -1565,18 +1582,28 @@ function CompactBar(p) {
         )}
       </div>
 
-      {(palette || menu) && (
+      {(palette || menu || erasePop) && (
         <div onClick={closeAll} style={{ position: "fixed", inset: 0, zIndex: 55 }} />
+      )}
+
+      {erasePop && (
+        <div style={pop}>
+          <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase",
+                         letterSpacing: ".05em", color: "var(--ink-light)" }}>Eraser</span>
+          <EraseModes stacked afterPick={closeAll} {...{ eraseMode, setEraseMode }} />
+          {eraseMode === "circle" && (
+            <>
+              <Sep vertical />
+              <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase",
+                             letterSpacing: ".05em", color: "var(--ink-light)" }}>Size</span>
+              <Widths afterPick={closeAll} {...{ width, setWidth, tool, setTool }} />
+            </>
+          )}
+        </div>
       )}
 
       {palette && (
         <div style={pop}>
-          {tool === "eraser" && (
-            <>
-              <EraseModes {...{ eraseMode, setEraseMode }} />
-              <Sep vertical />
-            </>
-          )}
           <Swatches wrap afterPick={closeAll}
             {...{ colour, setColour, hlColour, setHlColour, tool, setTool, inkColour }} />
           <Widths afterPick={closeAll} {...{ width, setWidth, tool, setTool }} />
