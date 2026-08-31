@@ -1,6 +1,7 @@
 /* eslint-disable */
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "./supabaseClient";
+import { getStudyMode, setStudyMode } from "./studyMode";
 
 // Supabase client lives in ./supabaseClient.js and is shared with the study page.
 
@@ -1098,6 +1099,8 @@ export default function App() {
     return (!isNaN(saved) && saved >= 12 && saved <= 32) ? saved : 18;
   });
   const [showSettings, setShowSettings] = useState(false);
+  // Which study page the NOTES tab opens. Mirrors localStorage via studyMode.js.
+  const [studyMode, setStudyModeState] = useState(getStudyMode);
   const [showVersionPicker, setShowVersionPicker] = useState(false);
 
   // Panel state
@@ -1775,6 +1778,39 @@ export default function App() {
   }
   function goDay(delta) { const d = new Date(currentDate); d.setDate(d.getDate()+delta); setCurrentDate(d); setActiveTab(0); setPanelOpen(false); }
   function goToday() { setCurrentDate(new Date()); setActiveTab(0); setPanelOpen(false); }
+
+  // NOTES tab. In ink mode it hands the current passage to the stylus page and
+  // navigates there; in text mode it opens the Discussion panel, which is where
+  // the typed study page will go in Phase 4.
+  function openStudy() {
+    if (getStudyMode() !== "ink") {
+      setActiveTab(readings.length);
+      setPanelAnchor(null);
+      setPanelOpen(true);
+      return;
+    }
+    try {
+      const ref = parsePassageRef(readings[activeTab] || "");
+      const first = ref?.books?.[0];
+      if (first?.book) {
+        localStorage.setItem("scribe-pos", JSON.stringify({
+          book: first.book,
+          chapter: first.chapters?.[0] || 1,
+        }));
+      }
+    } catch {}
+    window.location.hash = "#/study";
+  }
+
+  function toggleStudyMode() {
+    setStudyModeState(setStudyMode(studyMode === "ink" ? "text" : "ink"));
+  }
+
+  function openDiscussion() {
+    setActiveTab(readings.length);
+    setPanelAnchor(null);
+    setPanelOpen(true);
+  }
   const isToday = currentDate.toDateString() === today.toDateString();
   const formattedDate = currentDate.toLocaleDateString("en-US", { weekday:"long", month:"long", day:"numeric" });
 
@@ -1863,6 +1899,11 @@ export default function App() {
           )}
         </div>
         <div className="header-right">
+          <button className="header-icon-btn" onClick={openDiscussion}
+            title="Discussion"
+            style={{background:"none", border:"none", cursor:"pointer", padding:"2px 4px", lineHeight:1}}>
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </button>
           <button className="header-icon-btn" onClick={() => setShowSettings(true)}
             title="Settings"
             style={{fontSize:"36px", background:"none", border:"none", cursor:"pointer", padding:"2px 6px", lineHeight:1}}>
@@ -1885,10 +1926,12 @@ export default function App() {
             </button>
           ))}
           <button className={`tab${activeTab===readings.length?" active":""}`}
-            onClick={() => { setActiveTab(readings.length); setPanelAnchor(null); setPanelOpen(true); }}>
+            onClick={openStudy}>
             <span className="tab-label">NOTES</span>
             <span className="tab-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={darkMode && activeTab===readings.length ? "var(--ink)" : "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              {studyMode === "ink"
+                ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={darkMode && activeTab===readings.length ? "var(--ink)" : "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+                : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={darkMode && activeTab===readings.length ? "var(--ink)" : "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>}
             </span>
           </button>
           <button className={`tab${activeTab===readings.length+1?" active":""}`}
@@ -2484,30 +2527,6 @@ export default function App() {
       )}
 
       {/* TOAST */}
-      {/* Link across to the study page (separate app, own interface) */}
-      <button
-        aria-label="Open study page"
-        onClick={() => {
-          try {
-            const ref = parsePassageRef(readings[activeTab] || "");
-            const first = ref?.books?.[0];
-            if (first?.book) {
-              localStorage.setItem("scribe-pos", JSON.stringify({
-                book: first.book,
-                chapter: first.chapters?.[0] || 1,
-              }));
-            }
-          } catch {}
-          window.location.hash = "#/study";
-        }}
-        style={{
-          position: "fixed", right: 20, bottom: 84, zIndex: 40,
-          width: 52, height: 52, borderRadius: "50%", border: "none",
-          background: "#C1663B", color: "#fff", fontSize: 22, cursor: "pointer",
-          boxShadow: "0 3px 12px rgba(0,0,0,.3)", lineHeight: 1,
-        }}
-      >&#9998;</button>
-
       {toast && <div className="toast">{toast}</div>}
 
       {/* SETTINGS MENU */}
@@ -2520,6 +2539,11 @@ export default function App() {
               color:"var(--ink)",fontFamily:"Lato",fontSize:"14px",textAlign:"left",padding:"4px 0"}}
               onClick={() => { toggleDark(); setShowSettings(false); }}>
               {darkMode ? "Light Mode" : "Dark Mode"}
+            </button>
+            <button style={{background:"none",border:"none",cursor:"pointer",
+              color:"var(--ink)",fontFamily:"Lato",fontSize:"14px",textAlign:"left",padding:"4px 0"}}
+              onClick={toggleStudyMode}>
+              Use stylus: {studyMode === "ink" ? "On" : "Off"}
             </button>
             <div style={{display:"flex",alignItems:"center",gap:"8px",color:"var(--ink)",fontSize:"14px",fontFamily:"Lato"}}>
               <span>Font</span>

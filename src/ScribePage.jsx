@@ -12,11 +12,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef, useLayoutEffect, useCallback } from "react";
 import defaultClient from "./supabaseClient";
+import { setStudyMode } from "./studyMode";
 
 // ─── PAGE GEOMETRY (A4 portrait at 150 units/inch) ───────────────────────────
 // Everything inside the page is measured in these units and the whole page is
 // scaled to the device with one CSS transform. Identical on every screen.
-const VERSION = "23";                    // bump on every deploy
+const VERSION = "24";                    // bump on every deploy
 const PAGE_W = 1240;
 const PAGE_H = 1754;
 const UPP    = PAGE_W / 595.28;          // units per typographic point
@@ -1442,6 +1443,11 @@ function Rail(p) {
         title={dark ? "Light mode" : "Dark mode"}>
         <Icon d={ICONS.theme} />
       </button>
+      <button style={{ ...ghost(true), width: "100%", fontSize: 10 }}
+        title="Turn off to use the typed study page instead"
+        onClick={() => { setStudyMode("text"); exit(); }}>
+        Stylus on
+      </button>
       <Sep vertical />
       <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
         <button style={{ ...ghost(false), padding: "3px 5px" }} disabled={zoom === ZOOMS[0]}
@@ -1624,6 +1630,11 @@ function CompactBar(p) {
           </button>
           <button style={ghost(false)} onClick={() => { toggleDark(); closeAll(); }}>
             <Icon d={ICONS.theme} size={14} /> {dark ? "Light mode" : "Dark mode"}
+          </button>
+          <button style={ghost(true)}
+            title="Turn off to use the typed study page instead"
+            onClick={() => { closeAll(); setStudyMode("text"); exit(); }}>
+            Use stylus: On
           </button>
           <Sep vertical />
           <button style={ghost(false)} onClick={() => {
