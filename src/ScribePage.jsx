@@ -17,7 +17,7 @@ import { setStudyMode } from "./studyMode";
 // ─── PAGE GEOMETRY (A4 portrait at 150 units/inch) ───────────────────────────
 // Everything inside the page is measured in these units and the whole page is
 // scaled to the device with one CSS transform. Identical on every screen.
-const VERSION = "24";                    // bump on every deploy
+const VERSION = "25";                    // bump on every deploy
 const PAGE_W = 1240;
 const PAGE_H = 1754;
 const UPP    = PAGE_W / 595.28;          // units per typographic point
@@ -714,6 +714,7 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour,
       style={{
         position: "absolute", inset: 0, width: PAGE_W, height: PAGE_H,
         touchAction: "none", zIndex: 3,
+        pointerEvents: tool === "type" ? "none" : "auto",
         cursor: readOnly ? "grab" : (tool === "link" ? "pointer" : "crosshair"),
       }}
     />
@@ -721,7 +722,8 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour,
   );
 }
 
-function TypeLayer({ pageKey, supabase, user, readOnly }) {
+function TypeLayer({ pageKey, supabase, user, readOnly, active,
+                     x0 = RULE_X0, x1 = RULE_X1, top = MARGIN }) {
   const [text, setText] = useState("");
   const textRef   = useRef("");
   const dirtyRef  = useRef(false);
@@ -805,9 +807,10 @@ function TypeLayer({ pageKey, supabase, user, readOnly }) {
       onChange={e => { textRef.current = e.target.value; setText(e.target.value); persist(); }}
       style={{
         position: "absolute",
-        left: RULE_X0, top: MARGIN,
-        width: RULE_X1 - RULE_X0, height: TEXT_H,
-        zIndex: 3,
+        left: x0, top,
+        width: x1 - x0, height: TEXT_H,
+        zIndex: 2,
+        pointerEvents: active ? "auto" : "none",
         background: "transparent", border: "none", outline: "none", resize: "none",
         color: INK, caretColor: ACCENT,
         fontFamily: "'Lato', sans-serif",
@@ -826,7 +829,9 @@ function TypeLayer({ pageKey, supabase, user, readOnly }) {
 function pageKeyMeta(pageKey) {
   if (pageKey.startsWith("word:")) return { kind: "word" };
   if (pageKey.startsWith("text:")) {
-    const [, book, ch] = pageKey.split(":");
+    const inner = pageKey.slice(5);
+    if (inner.startsWith("word:")) return { kind: "text", book: null, chapter: null };
+    const [book, ch] = inner.split(":");
     return { kind: "text", book, chapter: parseInt(ch, 10) };
   }
   const [book, ch] = pageKey.split(":");
@@ -942,7 +947,12 @@ export default function ScribePage({
   const [menu, setMenu] = useState(false);
   const [erasePop, setErasePop] = useState(false);
 
-  const [tool, setTool] = useState("pen");
+  const [tool, setTool] = useState(mode === "text" ? "type" : "pen");
+  // Remember how the page was last used, so the NOTES tab reopens like for like.
+  useEffect(() => {
+    if (tool === "type") setStudyMode("text");
+    else if (tool === "pen" || tool === "highlighter") setStudyMode("ink");
+  }, [tool]);
   const [hlColour, setHlColour] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [debug, setDebug] = useState(false);
@@ -1190,9 +1200,8 @@ export default function ScribePage({
 
   const activeKey = wordPage
     ? wordPage.page_key
-    : mode === "text"
-      ? textPageKey(book, chapter, pageIdx)
-      : scripturePageKey(book, chapter, pageIdx);
+    : scripturePageKey(book, chapter, pageIdx);
+  const activeTextKey = `text:${wordPage ? wordPage.page_key : `${book}:${chapter}:p${pageIdx + 1}`}`;
 
   const [pStart, pEnd] = pages[pageIdx] || [0, -1];
   const visible = verses.slice(pStart, pEnd + 1);
@@ -1295,14 +1304,16 @@ export default function ScribePage({
             </>
           )}
 
-          {mode === "text" ? (
-            <TypeLayer
-              pageKey={activeKey}
-              supabase={supabase}
-              user={user}
-              readOnly={readOnly}
-            />
-          ) : (
+          <TypeLayer
+            pageKey={activeTextKey}
+            supabase={supabase}
+            user={user}
+            readOnly={readOnly}
+            active={tool === "type" && !readOnly}
+            x0={wordPage ? MARGIN : RULE_X0}
+            x1={wordPage ? PAGE_W - MARGIN : RULE_X1}
+            top={wordPage ? MARGIN + 10 : MARGIN}
+          />
           <InkLayer
             pageKey={activeKey}
             supabase={supabase}
@@ -1320,7 +1331,6 @@ export default function ScribePage({
             pressure={pressure}
             readOnly={readOnly}
           />
-          )}
         </div>
         </div>
       </div>
@@ -1404,6 +1414,7 @@ const Icon = ({ d, size = 16 }) => (
        strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">{d}</svg>
 );
 const ICONS = {
+  type: "M4 7V5h16v2M12 5v14M9 19h6",
   erase: <><path d="M4 16 14 6a2 2 0 0 1 3 0l4 4a2 2 0 0 1 0 3l-7 7H7z" /><path d="M9 21h11" /></>,
   link:  <><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1" /><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" /></>,
   undo:  <><path d="M3 8h11a6 6 0 0 1 0 12H8" /><path d="m7 4-4 4 4 4" /></>,
@@ -1535,8 +1546,11 @@ function Rail(p) {
         </>
       )}
 
-      {mode === "ink" && (<>
       <Sep vertical />
+      <button style={{ ...ghost(tool === "type"), width: "100%" }}
+        onClick={() => setTool("type")} title="Type notes">
+        <Icon d={ICONS.type} size={14} />
+      </button>
       <div style={{ display: "flex", gap: 4, width: "100%" }}>
         <button style={{ ...ghost(tool === "pen"), flex: 1 }} onClick={() => setTool("pen")}
           title="Pen"><Icon d={ICONS.pen} size={14} /></button>
@@ -1569,18 +1583,12 @@ function Rail(p) {
         onClick={() => { if (window.confirm("Clear all ink on this page?")) window.__scribeInk?.clear(); }}>
         <Icon d={ICONS.clear} />
       </button>
-      </>)}
       <button style={{ ...ghost(false), width: "100%" }} onClick={openIndex}>
         <Icon d={ICONS.pages} />
       </button>
       <button style={{ ...ghost(false), width: "100%" }} onClick={toggleDark}
         title={dark ? "Light mode" : "Dark mode"}>
         <Icon d={ICONS.theme} />
-      </button>
-      <button style={{ ...ghost(mode === "ink"), width: "100%", fontSize: 10, lineHeight: 1.25 }}
-        title="Switch between the stylus page and the typed page"
-        onClick={() => { setStudyMode(mode === "ink" ? "text" : "ink"); exit(); }}>
-        Stylus<br />{mode === "ink" ? "on" : "off"}
       </button>
       <Sep vertical />
       <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
@@ -1676,16 +1684,11 @@ function CompactBar(p) {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
-        {readOnly || mode === "text" ? (
+        {readOnly ? (
           <>
             {zoomPair}
             <span style={{ fontSize: 11, color: "var(--ink-light)", minWidth: 36,
                            textAlign: "right" }}>{Math.round(zoom * 100)}%</span>
-            {!readOnly && (
-              <button style={{ ...ghost(menu), padding: "4px 6px" }} title="More"
-                onClick={() => { setPalette(false); setMenu(v => !v); }}>
-                <Icon d={ICONS.pages} /></button>
-            )}
           </>
         ) : (
           <>
@@ -1700,6 +1703,9 @@ function CompactBar(p) {
               }} />
               <span style={{ fontSize: 10 }}>{["S", "M", "L"][width]}</span>
             </button>
+            <button style={{ ...ghost(tool === "type"), padding: "4px 6px" }} title="Type notes"
+              onClick={() => pick("type")}>
+              <Icon d={ICONS.type} /></button>
             <button style={{ ...ghost(tool === "pen"), padding: "4px 6px" }} title="Pen"
               onClick={() => pick("pen")}>
               <Icon d={ICONS.pen} /></button>
@@ -1769,11 +1775,6 @@ function CompactBar(p) {
           </button>
           <button style={ghost(false)} onClick={() => { toggleDark(); closeAll(); }}>
             <Icon d={ICONS.theme} size={14} /> {dark ? "Light mode" : "Dark mode"}
-          </button>
-          <button style={ghost(mode === "ink")}
-            title="Switch between the stylus page and the typed page"
-            onClick={() => { closeAll(); setStudyMode(mode === "ink" ? "text" : "ink"); exit(); }}>
-            Use stylus: {mode === "ink" ? "On" : "Off"}
           </button>
           <Sep vertical />
           <button style={ghost(false)} onClick={() => {
