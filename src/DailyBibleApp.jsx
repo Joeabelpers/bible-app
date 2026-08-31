@@ -766,6 +766,11 @@ const styles = `
     .wide-body .passage-scroll { height: auto !important; overflow: visible !important; padding-bottom: 0 !important; flex: 1; }
     .bottom-panel { display: none !important; }
     .panel-backdrop { display: none !important; }
+    /* ...except the Discussion, which is opened deliberately and has no verse
+       anchor. Verse notes stay suppressed here: on wide they belong in the
+       notes column, not a popup. */
+    .bottom-panel.panel-force { display: flex !important; }
+    .panel-backdrop.panel-force { display: block !important; }
 
     /* Unified header spanning both columns */
     .wide-unified-header {
@@ -783,6 +788,11 @@ const styles = `
 
     .bottom-panel { display: none !important; }
     .panel-backdrop { display: none !important; }
+    /* ...except the Discussion, which is opened deliberately and has no verse
+       anchor. Verse notes stay suppressed here: on wide they belong in the
+       notes column, not a popup. */
+    .bottom-panel.panel-force { display: flex !important; }
+    .panel-backdrop.panel-force { display: block !important; }
 
     /* Unified header spanning both columns */
     .wide-unified-header {
@@ -1789,12 +1799,6 @@ export default function App() {
   // navigates there; in text mode it opens the Discussion panel, which is where
   // the typed study page will go in Phase 4.
   function openStudy() {
-    if (getStudyMode() !== "ink") {
-      setActiveTab(readings.length);
-      setPanelAnchor(null);
-      setPanelOpen(true);
-      return;
-    }
     try {
       const ref = parsePassageRef(readings[activeTab] || "");
       const first = ref?.books?.[0];
@@ -1805,7 +1809,7 @@ export default function App() {
         }));
       }
     } catch {}
-    window.location.hash = "#/study";
+    window.location.hash = getStudyMode() === "ink" ? "#/study" : "#/notes";
   }
 
   function toggleStudyMode() {
@@ -2419,8 +2423,8 @@ export default function App() {
       {/* BOTTOM PANEL */}
       {panelOpen && (
         <>
-          <div className="panel-backdrop" onClick={() => setPanelOpen(false)} />
-          <div className="bottom-panel" style={{ height: `${panelHeight}vh` }}>
+          <div className={`panel-backdrop${panelAnchor ? "" : " panel-force"}`} onClick={() => setPanelOpen(false)} />
+          <div className={`bottom-panel${panelAnchor ? "" : " panel-force"}`} style={{ height: `${panelHeight}vh` }}>
             <div className="panel-drag-handle" ref={dragRef}
               onMouseDown={onDragStart} onTouchStart={onDragStart} />
             <div className="panel-header">

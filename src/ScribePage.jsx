@@ -215,6 +215,7 @@ function paintStrokes(c, strokes, inkColour) {
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const scripturePageKey = (book, ch, pageIdx) => `${book}:${ch}:p${pageIdx + 1}`;
+const textPageKey = (book, ch, pageIdx) => `text:${book}:${ch}:p${pageIdx + 1}`;
 const wordPageKey = (book, ch, v, start) => `word:${book}-${ch}-${v}-${start}`;
 
 function tokenize(text) {
@@ -720,8 +721,114 @@ function InkLayer({ pageKey, supabase, user, tool, eraseMode, colour, hlColour,
   );
 }
 
+function TypeLayer({ pageKey, supabase, user, readOnly }) {
+  const [text, setText] = useState("");
+  const textRef   = useRef("");
+  const dirtyRef  = useRef(false);
+  const saveTimer = useRef(null);
+  const syncTimer = useRef(null);
+  const cfg = useRef(null);
+  cfg.current = { pageKey, supabase, user };
+
+  async function writeLocal() {
+    if (!dirtyRef.current) return;
+    dirtyRef.current = false;
+    const { pageKey: key, supabase: sb, user: u } = cfg.current;
+    const payload = {
+      text: textRef.current,
+      updated_at: new Date().toISOString(),
+      dirty: true,
+      meta: pageKeyMeta(key),
+    };
+    try { await idbSet(key, payload); } catch {}
+    clearTimeout(syncTimer.current);
+    syncTimer.current = setTimeout(() => syncOne(key, payload, sb, u), 2500);
+  }
+  function persist() {
+    dirtyRef.current = true;
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(writeLocal, 700);
+  }
+  function flush() {
+    clearTimeout(saveTimer.current);
+    if (dirtyRef.current) writeLocal();
+    const { pageKey: key, supabase: sb, user: u } = cfg.current;
+    idbGet(key).then(v => { if (v?.dirty) syncOne(key, v, sb, u); }).catch(() => {});
+  }
+
+  // Same shape as InkLayer's loader: local first so the page is usable
+  // offline, then adopt the remote copy only if it is newer and nothing
+  // local is still waiting to be pushed.
+  useEffect(() => {
+    let cancelled = false;
+    setText(""); textRef.current = "";
+    (async () => {
+      const local = await idbGet(pageKey).catch(() => null);
+      if (cancelled) return;
+      if (typeof local?.text === "string") {
+        setText(local.text); textRef.current = local.text;
+      }
+      if (!user) return;
+      const { data } = await supabase
+        .from("text_pages").select("content, updated_at")
+        .eq("user_id", user.id).eq("page_key", pageKey).maybeSingle();
+      if (cancelled || !data) return;
+      const remoteNewer = !local || new Date(data.updated_at) > new Date(local.updated_at || 0);
+      if (remoteNewer && !local?.dirty) {
+        const c = data.content || "";
+        setText(c); textRef.current = c;
+        idbSet(pageKey, { text: c, updated_at: data.updated_at, dirty: false, meta: pageKeyMeta(pageKey) });
+      }
+    })();
+    return () => { cancelled = true; flush(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageKey, user?.id]);
+
+  useEffect(() => {
+    window.__scribeSync = (k, v) => syncOne(k, v, cfg.current.supabase, cfg.current.user);
+    const h = () => flush();
+    document.addEventListener("visibilitychange", h);
+    window.addEventListener("pagehide", h);
+    return () => {
+      document.removeEventListener("visibilitychange", h);
+      window.removeEventListener("pagehide", h);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <textarea
+      value={text}
+      readOnly={readOnly}
+      spellCheck={true}
+      placeholder={readOnly ? "" : "Notes…"}
+      onChange={e => { textRef.current = e.target.value; setText(e.target.value); persist(); }}
+      style={{
+        position: "absolute",
+        left: RULE_X0, top: MARGIN,
+        width: RULE_X1 - RULE_X0, height: TEXT_H,
+        zIndex: 3,
+        background: "transparent", border: "none", outline: "none", resize: "none",
+        color: INK, caretColor: ACCENT,
+        fontFamily: "'Lato', sans-serif",
+        fontSize: Math.round(FONT_SIZE * 0.92),
+        // one typed line per ruled line; the padding drops the baseline onto
+        // the rule instead of floating it halfway between two
+        lineHeight: `${RULE_GAP}px`,
+        paddingTop: 9,
+        overflow: "hidden",
+        WebkitUserSelect: "text", userSelect: "text",
+      }}
+    />
+  );
+}
+
 function pageKeyMeta(pageKey) {
   if (pageKey.startsWith("word:")) return { kind: "word" };
+  if (pageKey.startsWith("text:")) {
+    const [, book, ch] = pageKey.split(":");
+    return { kind: "text", book, chapter: parseInt(ch, 10) };
+  }
   const [book, ch] = pageKey.split(":");
   return { kind: "scripture", book, chapter: parseInt(ch, 10) };
 }
@@ -729,6 +836,18 @@ function pageKeyMeta(pageKey) {
 async function syncOne(pageKey, payload, supabase, user) {
   if (!user) return;
   const meta = payload.meta || pageKeyMeta(pageKey);
+  if (meta.kind === "text") {
+    const { error: e } = await supabase.from("text_pages").upsert({
+      user_id: user.id,
+      page_key: pageKey,
+      book: meta.book || null,
+      chapter: meta.chapter || null,
+      content: payload.text || "",
+      updated_at: payload.updated_at,
+    }, { onConflict: "user_id,page_key" });
+    if (!e) await idbSet(pageKey, { ...payload, dirty: false });
+    return;
+  }
   const { error } = await supabase.from("ink_pages").upsert({
     user_id: user.id,
     page_key: pageKey,
@@ -784,6 +903,7 @@ export default function ScribePage({
   initialBook,
   initialChapter,
   onExit,
+  mode = "ink",            // "ink" = stylus canvas, "text" = keyboard
 }) {
   // Runs standalone by default; props are only for embedding it elsewhere.
   const supabase = supabaseProp || defaultClient;
@@ -1070,7 +1190,9 @@ export default function ScribePage({
 
   const activeKey = wordPage
     ? wordPage.page_key
-    : scripturePageKey(book, chapter, pageIdx);
+    : mode === "text"
+      ? textPageKey(book, chapter, pageIdx)
+      : scripturePageKey(book, chapter, pageIdx);
 
   const [pStart, pEnd] = pages[pageIdx] || [0, -1];
   const visible = verses.slice(pStart, pEnd + 1);
@@ -1108,6 +1230,7 @@ export default function ScribePage({
     exit, user, openIndex, wordPage, setWordPage,
     openPicker: () => setPicker(true),
     palette, setPalette, menu, setMenu, erasePop, setErasePop, dark, toggleDark, readOnly, debug, setDebug, pressure, togglePressure,
+    mode,
   };
 
   // ─── render ──────────────────────────────────────────────────────────────
@@ -1172,6 +1295,14 @@ export default function ScribePage({
             </>
           )}
 
+          {mode === "text" ? (
+            <TypeLayer
+              pageKey={activeKey}
+              supabase={supabase}
+              user={user}
+              readOnly={readOnly}
+            />
+          ) : (
           <InkLayer
             pageKey={activeKey}
             supabase={supabase}
@@ -1189,6 +1320,7 @@ export default function ScribePage({
             pressure={pressure}
             readOnly={readOnly}
           />
+          )}
         </div>
         </div>
       </div>
@@ -1370,7 +1502,7 @@ function Rail(p) {
           width, setWidth, inkColour, exit, user, openIndex, wordPage, setWordPage,
           openPicker, dark, toggleDark, eraseMode, setEraseMode,
           hlColour, setHlColour, zoom, stepZoom, ZOOMS, debug, setDebug,
-          pressure, togglePressure } = p;
+          pressure, togglePressure, mode } = p;
   return (
     <div style={{
       ...face, width: RAIL_W, flexShrink: 0, height: "100%", overflowY: "auto",
@@ -1403,6 +1535,7 @@ function Rail(p) {
         </>
       )}
 
+      {mode === "ink" && (<>
       <Sep vertical />
       <div style={{ display: "flex", gap: 4, width: "100%" }}>
         <button style={{ ...ghost(tool === "pen"), flex: 1 }} onClick={() => setTool("pen")}
@@ -1436,6 +1569,7 @@ function Rail(p) {
         onClick={() => { if (window.confirm("Clear all ink on this page?")) window.__scribeInk?.clear(); }}>
         <Icon d={ICONS.clear} />
       </button>
+      </>)}
       <button style={{ ...ghost(false), width: "100%" }} onClick={openIndex}>
         <Icon d={ICONS.pages} />
       </button>
@@ -1443,10 +1577,10 @@ function Rail(p) {
         title={dark ? "Light mode" : "Dark mode"}>
         <Icon d={ICONS.theme} />
       </button>
-      <button style={{ ...ghost(true), width: "100%", fontSize: 10 }}
-        title="Turn off to use the typed study page instead"
-        onClick={() => { setStudyMode("text"); exit(); }}>
-        Stylus on
+      <button style={{ ...ghost(mode === "ink"), width: "100%", fontSize: 10, lineHeight: 1.25 }}
+        title="Switch between the stylus page and the typed page"
+        onClick={() => { setStudyMode(mode === "ink" ? "text" : "ink"); exit(); }}>
+        Stylus<br />{mode === "ink" ? "on" : "off"}
       </button>
       <Sep vertical />
       <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
@@ -1479,7 +1613,7 @@ function CompactBar(p) {
           openPicker, palette, setPalette, menu, setMenu, erasePop, setErasePop,
           dark, toggleDark, eraseMode, setEraseMode, hlColour, setHlColour,
           zoom, stepZoom, ZOOMS, debug, setDebug, pressure, togglePressure,
-          readOnly } = p;
+          readOnly, mode } = p;
 
   const closeAll = () => { setPalette(false); setMenu(false); setErasePop(false); };
   const pick = (t) => { closeAll(); setTool(t); };
@@ -1542,11 +1676,16 @@ function CompactBar(p) {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
-        {readOnly ? (
+        {readOnly || mode === "text" ? (
           <>
             {zoomPair}
             <span style={{ fontSize: 11, color: "var(--ink-light)", minWidth: 36,
                            textAlign: "right" }}>{Math.round(zoom * 100)}%</span>
+            {!readOnly && (
+              <button style={{ ...ghost(menu), padding: "4px 6px" }} title="More"
+                onClick={() => { setPalette(false); setMenu(v => !v); }}>
+                <Icon d={ICONS.pages} /></button>
+            )}
           </>
         ) : (
           <>
@@ -1631,10 +1770,10 @@ function CompactBar(p) {
           <button style={ghost(false)} onClick={() => { toggleDark(); closeAll(); }}>
             <Icon d={ICONS.theme} size={14} /> {dark ? "Light mode" : "Dark mode"}
           </button>
-          <button style={ghost(true)}
-            title="Turn off to use the typed study page instead"
-            onClick={() => { closeAll(); setStudyMode("text"); exit(); }}>
-            Use stylus: On
+          <button style={ghost(mode === "ink")}
+            title="Switch between the stylus page and the typed page"
+            onClick={() => { closeAll(); setStudyMode(mode === "ink" ? "text" : "ink"); exit(); }}>
+            Use stylus: {mode === "ink" ? "On" : "Off"}
           </button>
           <Sep vertical />
           <button style={ghost(false)} onClick={() => {

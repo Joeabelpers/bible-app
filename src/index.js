@@ -33,7 +33,9 @@ function Root() {
     return () => window.removeEventListener('hashchange', onChange);
   }, []);
 
-  return route.startsWith('#/study') ? <ScribePage /> : <App />;
+  if (route.startsWith('#/study')) return <ScribePage mode="ink" />;
+  if (route.startsWith('#/notes')) return <ScribePage mode="text" />;
+  return <App />;
 }
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
