@@ -463,6 +463,9 @@ const styles = `
     --border: #c9bfaa;
     --white: #faf6ef;
     --panel-h: 45vh;
+    /* Height of the tab BUTTONS only. The home-indicator inset is added on top
+       wherever it matters, so this is the one place to change bar height. */
+    --tabbar-h: 46px;
   }
   .dark {
     --parchment: #221E1E;
@@ -542,7 +545,10 @@ const styles = `
 /* BOTTOM TAB BAR — fixed at bottom */
   .tabs {
     display: flex;
-    background: none;
+    /* must be opaque: this element's padding-bottom is the iPhone home-indicator
+       strip, and a transparent background there makes the bar look like it is
+       floating above the bottom edge */
+    background: var(--parchment);
     border-top: none;
     position: fixed;
     bottom: 0; left: 50%; transform: translateX(-50%);
@@ -551,7 +557,7 @@ const styles = `
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
   .tab {
-    flex: 1; padding: 8px 2px 10px;
+    flex: 1; padding: 6px 2px 4px;
     font-size: 10px; font-family:'Lato',sans-serif; font-weight:700;
     text-align:center; cursor:pointer;
     color: var(--ink);
@@ -568,7 +574,7 @@ const styles = `
   .tab-icon { display:block; font-size:18px; line-height:1; }
   .tab-label { display:block; font-size:9px; font-weight:700; letter-spacing:0.3px; margin-bottom:2px; }
   /* BOTTOM TAB SPACER */
-  .tabs-spacer { height: calc(56px + env(safe-area-inset-bottom, 0px)); flex-shrink:0; }
+  .tabs-spacer { height: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px)); flex-shrink:0; }
   /* DATE BAR — removed, merged into header */
   .share-btn { background:none; border:1px solid var(--gold); color:var(--gold-light); border-radius:5px; padding:3px 7px; font-family:'Lato',sans-serif; font-size:11px; cursor:pointer; transition:all 0.15s; }
   .share-btn:hover { background:var(--gold); color:var(--ink); }
@@ -576,7 +582,7 @@ const styles = `
   /* PASSAGE SCROLL AREA */
   .passage-scroll {
     overflow-y: auto;
-    height: calc(100vh - 72px - 56px - env(safe-area-inset-bottom, 0px));
+    height: calc(100dvh - 72px - var(--tabbar-h) - env(safe-area-inset-bottom, 0px));
     -webkit-overflow-scrolling: touch;
   }
   .passage-container { padding: 0 0 120px; position:relative; }
@@ -747,7 +753,7 @@ const styles = `
     .app { max-width: 100%; }
     .header { max-width: 100%; left: 0; transform: none; width: 100%; }
     .tabs { max-width: 100%; left: 0; transform: none; width: 100%; }
-    .wide-wrapper { display: flex; flex-direction: column; flex: 1; height: calc(100vh - 72px - calc(56px + env(safe-area-inset-bottom, 0px))); overflow: hidden; }
+    .wide-wrapper { display: flex; flex-direction: column; flex: 1; height: calc(100dvh - 72px - calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px))); overflow: hidden; }
     /* Single shared scroller */
     .wide-body { display: flex; flex-direction: row; flex: 1; overflow-y: auto; overflow-x: hidden; position: relative; -webkit-overflow-scrolling: touch; }
     /* Text col fills full width, passage-container handles its own right padding */
